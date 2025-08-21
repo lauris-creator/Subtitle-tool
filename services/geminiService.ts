@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { MAX_TOTAL_CHARS } from '../constants';
 
 const API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
@@ -12,14 +12,12 @@ if (!API_KEY) {
   throw new Error("GEMINI_API_KEY environment variable not set");
 }
 
-const ai = new GoogleGenAI({ 
-  apiKey: API_KEY.trim() // Remove any potential whitespace
-});
+const genAI = new GoogleGenerativeAI(API_KEY.trim());
 
 // Helper function with exponential backoff to handle rate limiting.
 const makeApiCall = async (prompt: string, retries = 3, delay = 2000): Promise<string | null> => {
   try {
-    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     return response.text();

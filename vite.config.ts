@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
       },
       build: {
         rollupOptions: {
-          external: ['@google/genai']
+          external: ['@google/generative-ai']
         }
       }
     };
