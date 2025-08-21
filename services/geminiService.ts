@@ -3,35 +3,26 @@ import { MAX_TOTAL_CHARS } from '../constants';
 
 const API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
-// Debug logging (will be visible in browser console)
-console.log('Environment check:', {
-  hasAPIKey: !!process.env.API_KEY,
-  hasGeminiKey: !!process.env.GEMINI_API_KEY,
-  hasViteKey: !!process.env.VITE_GEMINI_API_KEY,
-  finalKeyExists: !!API_KEY,
-  keyLength: API_KEY ? API_KEY.length : 0
-});
+// Validate API key format
+if (API_KEY && !API_KEY.startsWith('AIza')) {
+  console.warn('API key may be invalid - should start with "AIza"');
+}
 
 if (!API_KEY) {
   throw new Error("GEMINI_API_KEY environment variable not set");
 }
 
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+const ai = new GoogleGenAI({ 
+  apiKey: API_KEY.trim() // Remove any potential whitespace
+});
 
 // Helper function with exponential backoff to handle rate limiting.
 const makeApiCall = async (prompt: string, retries = 3, delay = 2000): Promise<string | null> => {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        temperature: 0.3,
-        topP: 0.9,
-        maxOutputTokens: 100,
-        thinkingConfig: { thinkingBudget: 50 },
-      }
-    });
-    return response.text;
+    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
   } catch (error) {
     // Check if it's a rate limit error and we have retries left
     if (retries > 0 && error instanceof Error && (error.message.includes('429') || error.message.includes('RESOURCE_EXHAUSTED'))) {
