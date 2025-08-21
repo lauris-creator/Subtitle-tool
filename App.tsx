@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Subtitle } from './types';
 import { parseSrt, formatSrt } from './services/srtParser';
 import { getShortenedSubtitle } from './services/aiService';
+import { sessionManager } from './services/sessionManager';
 import Header from './components/Header';
 import FileUpload from './components/FileUpload';
 import SubtitleEditor from './components/SubtitleEditor';
@@ -17,6 +18,32 @@ const App: React.FC = () => {
   const [showErrorsOnly, setShowErrorsOnly] = useState<boolean>(false);
   const [showLongLinesOnly, setShowLongLinesOnly] = useState<boolean>(false);
   const [fileName, setFileName] = useState<string>('');
+  const [sessionRestored, setSessionRestored] = useState<boolean>(false);
+
+  // Restore session on component mount
+  useEffect(() => {
+    const savedSession = sessionManager.loadSession();
+    if (savedSession) {
+      setOriginalSubtitles(savedSession.originalSubtitles);
+      setTranslatedSubtitles(savedSession.translatedSubtitles);
+      setFileName(savedSession.fileName);
+      setSessionRestored(true);
+      
+      const sessionAge = sessionManager.getSessionAge();
+      console.log(`📂 Session restored! Last saved ${sessionAge} minutes ago.`);
+    }
+  }, []);
+
+  // Auto-save session when subtitles change
+  useEffect(() => {
+    if (sessionRestored || translatedSubtitles.length > 0) {
+      sessionManager.saveSession({
+        originalSubtitles,
+        translatedSubtitles,
+        fileName
+      });
+    }
+  }, [originalSubtitles, translatedSubtitles, fileName, sessionRestored]);
 
   const handleFileUpload = (content: string, type: 'original' | 'translated', name: string) => {
     const subs = parseSrt(content);
@@ -141,6 +168,18 @@ const App: React.FC = () => {
       setPreviousSubtitles(null);
     }
   };
+
+  const handleClearSession = () => {
+    if (confirm('Are you sure you want to start fresh? This will clear all current work.')) {
+      sessionManager.clearSession();
+      setOriginalSubtitles([]);
+      setTranslatedSubtitles([]);
+      setPreviousSubtitles(null);
+      setFileName('');
+      setSessionRestored(false);
+      console.log('🗑️ Session cleared. Starting fresh!');
+    }
+  };
   
   const hasTotalLengthErrors = useMemo(() => translatedSubtitles.some(sub => sub.isLong), [translatedSubtitles]);
   
@@ -183,6 +222,7 @@ const App: React.FC = () => {
         hasLongLines={hasLongLines}
         onUndo={handleUndo}
         canUndo={canUndo}
+        onClearSession={handleClearSession}
       />
 
       <main className="flex-grow container mx-auto p-4 md:p-8">

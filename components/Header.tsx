@@ -1,5 +1,5 @@
 import React from 'react';
-import { DownloadIcon, ScissorsIcon, UndoIcon } from './icons/Icons';
+import { DownloadIcon, ScissorsIcon, UndoIcon, TrashIcon } from './icons/Icons';
 import Logo from './Logo';
 
 interface HeaderProps {
@@ -9,9 +9,10 @@ interface HeaderProps {
   hasLongLines: boolean;
   onUndo: () => void;
   canUndo: boolean;
+  onClearSession: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onDownload, hasTranslatedSubs, onSplitAll, hasLongLines, onUndo, canUndo }) => {
+const Header: React.FC<HeaderProps> = ({ onDownload, hasTranslatedSubs, onSplitAll, hasLongLines, onUndo, canUndo, onClearSession }) => {
   return (
     <header className="bg-gray-800 shadow-md sticky top-0 z-10">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -20,6 +21,16 @@ const Header: React.FC<HeaderProps> = ({ onDownload, hasTranslatedSubs, onSplitA
             <Logo size="small" />
           </div>
           <div className="flex items-center space-x-4">
+            {hasTranslatedSubs && (
+              <button
+                onClick={onClearSession}
+                className="flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                title="Clear all data and start fresh"
+              >
+                <TrashIcon className="h-5 w-5 mr-2" />
+                Clear
+              </button>
+            )}
             {canUndo && (
               <button
                 onClick={onUndo}
