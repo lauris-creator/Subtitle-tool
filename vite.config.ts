@@ -14,10 +14,8 @@ export default defineConfig(({ mode }) => {
           '@': path.resolve(__dirname, '.'),
         }
       },
-      build: {
-        rollupOptions: {
-          external: ['@google/generative-ai']
-        }
+      optimizeDeps: {
+        include: ['@google/generative-ai']
       }
     };
 });
