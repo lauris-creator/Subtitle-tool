@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Subtitle } from './types';
 import { parseSrt, formatSrt } from './services/srtParser';
-import { getShortenedSubtitle } from './services/geminiService';
+import { getShortenedSubtitle } from './services/aiService';
 import Header from './components/Header';
 import FileUpload from './components/FileUpload';
 import SubtitleEditor from './components/SubtitleEditor';
