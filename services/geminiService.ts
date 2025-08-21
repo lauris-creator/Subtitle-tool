@@ -1,7 +1,16 @@
 import { GoogleGenAI } from "@google/genai";
 import { MAX_TOTAL_CHARS } from '../constants';
 
-const API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY;
+const API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+
+// Debug logging (will be visible in browser console)
+console.log('Environment check:', {
+  hasAPIKey: !!process.env.API_KEY,
+  hasGeminiKey: !!process.env.GEMINI_API_KEY,
+  hasViteKey: !!process.env.VITE_GEMINI_API_KEY,
+  finalKeyExists: !!API_KEY,
+  keyLength: API_KEY ? API_KEY.length : 0
+});
 
 if (!API_KEY) {
   throw new Error("GEMINI_API_KEY environment variable not set");
