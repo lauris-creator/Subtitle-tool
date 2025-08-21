@@ -1,5 +1,6 @@
 import React from 'react';
 import { DownloadIcon, ScissorsIcon, UndoIcon } from './icons/Icons';
+import Logo from './Logo';
 
 interface HeaderProps {
   onDownload: () => void;
@@ -16,7 +17,7 @@ const Header: React.FC<HeaderProps> = ({ onDownload, hasTranslatedSubs, onSplitA
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
-            <h1 className="text-xl font-bold text-white">SRT Subtitle Editor</h1>
+            <Logo size="small" />
           </div>
           <div className="flex items-center space-x-4">
             {canUndo && (

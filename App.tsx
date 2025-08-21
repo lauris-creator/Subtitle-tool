@@ -5,6 +5,7 @@ import { getShortenedSubtitle } from './services/geminiService';
 import Header from './components/Header';
 import FileUpload from './components/FileUpload';
 import SubtitleEditor from './components/SubtitleEditor';
+import Logo from './components/Logo';
 import { MAX_LINE_CHARS, MAX_TOTAL_CHARS } from './constants';
 
 const App: React.FC = () => {
@@ -187,7 +188,9 @@ const App: React.FC = () => {
       <main className="flex-grow container mx-auto p-4 md:p-8">
         {translatedSubtitles.length === 0 ? (
           <div className="text-center mt-16 max-w-2xl mx-auto">
-            <h2 className="text-4xl font-bold text-white mb-4">SRT Subtitle Editor</h2>
+            <div className="flex justify-center mb-6">
+              <Logo size="large" />
+            </div>
             <p className="text-gray-400 text-lg mb-8">
               Upload your translated .srt file to begin. You can also upload an original version for side-by-side comparison.
               The app will automatically flag lines longer than 74 characters and help you fix them with AI.
