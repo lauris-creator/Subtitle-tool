@@ -1,0 +1,5 @@
+{
+  "name": "SRT Subtitle Editor",
+  "description": "An AI-powered tool to upload, validate, edit, and download .srt subtitle files. It helps fix lines that are too long by suggesting shorter alternatives.",
+  "requestFramePermissions": []
+}
