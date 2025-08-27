@@ -1,7 +1,9 @@
 import React from 'react';
 import { Subtitle } from '../types';
 import { MAX_LINE_CHARS, MAX_TOTAL_CHARS } from '../constants';
-import { CheckIcon, SparklesIcon, XIcon, WarningIcon, RefreshIcon, UndoIcon } from './icons/Icons';
+import { CheckIcon, SparklesIcon, XIcon, WarningIcon, RefreshIcon, UndoIcon, SplitIcon, ClockIcon } from './icons/Icons';
+import { calculateDuration, formatDuration } from '../utils/timeUtils';
+import { validateSplit } from '../utils/textUtils';
 
 interface SubtitleItemProps {
   subtitle: Subtitle;
@@ -12,6 +14,7 @@ interface SubtitleItemProps {
   onUpdateSuggestion: (id: number, newSuggestion: string) => void;
   onAcceptSuggestion: (id: number) => void;
   onUndoSubtitle: (id: number) => void;
+  onSplitSubtitle: (id: number) => void;
 }
 
 const splitText = (text: string): [string, string] => {
@@ -47,12 +50,17 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
   onUpdateSuggestion,
   onAcceptSuggestion,
   onUndoSubtitle,
+  onSplitSubtitle,
 }) => {
   const [splitSuggestionLine1, splitSuggestionLine2] = subtitle.suggestion ? splitText(subtitle.suggestion) : ['', ''];
   const suggestionCharCount = subtitle.suggestion?.replace(/\n/g, '').length ?? 0;
   const isSuggestionLong = suggestionCharCount > MAX_TOTAL_CHARS;
 
   const hasLongLine = subtitle.text.split('\n').some(line => line.length > MAX_LINE_CHARS);
+  
+  // Calculate duration for this subtitle
+  const duration = calculateDuration(subtitle.startTime, subtitle.endTime);
+  const canSplit = validateSplit(subtitle.text);
   const translatedLines = subtitle.text.split('\n');
   const lineCounts = translatedLines.map(line => line.length);
 
@@ -66,7 +74,23 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
           <div className="md:w-1/6 text-sm text-gray-400 font-mono flex-shrink-0">
             <p>{subtitle.startTime}</p>
             <p>{subtitle.endTime}</p>
-            <p className="mt-2 text-xs">ID: {subtitle.id}</p>
+            <div className="mt-2 space-y-1">
+              <p className="text-xs">ID: {subtitle.id}</p>
+              <div className="flex items-center gap-1 text-blue-400">
+                <ClockIcon className="h-3 w-3" />
+                <span className="text-xs">{formatDuration(duration)}</span>
+              </div>
+              {canSplit && (
+                <button
+                  onClick={() => onSplitSubtitle(subtitle.id)}
+                  className="flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors"
+                  title="Split this subtitle into two parts"
+                >
+                  <SplitIcon className="h-3 w-3" />
+                  Split
+                </button>
+              )}
+            </div>
           </div>
         )}
 

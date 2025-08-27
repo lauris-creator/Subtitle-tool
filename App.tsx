@@ -3,6 +3,8 @@ import { Subtitle } from './types';
 import { parseSrt, formatSrt } from './services/srtParser';
 import { getShortenedSubtitle } from './services/aiService';
 import { sessionManager } from './services/sessionManager';
+import { splitTextIntelligently } from './utils/textUtils';
+import { splitTimeProportionally } from './utils/timeUtils';
 import Header from './components/Header';
 import FileUpload from './components/FileUpload';
 import SubtitleEditor from './components/SubtitleEditor';
@@ -277,6 +279,130 @@ const App: React.FC = () => {
     setBulkProgress(null);
     console.log(`🎉 Bulk generation completed! Generated suggestions for ${problematicSubs.length} subtitles`);
   }, [translatedSubtitles]);
+
+  const handleSplitSubtitle = useCallback((id: number) => {
+    setTranslatedSubtitles(prev => {
+      const subtitleIndex = prev.findIndex(sub => sub.id === id);
+      if (subtitleIndex === -1) return prev;
+      
+      const subtitle = prev[subtitleIndex];
+      const splitResult = splitTextIntelligently(subtitle.text);
+      
+      if (!splitResult.secondPart) {
+        console.log('❌ Cannot split subtitle - insufficient content');
+        return prev;
+      }
+      
+      // Calculate new timing
+      const timeResult = splitTimeProportionally(
+        subtitle.startTime, 
+        subtitle.endTime, 
+        splitResult.firstRatio
+      );
+      
+      // Create two new subtitles
+      const firstSubtitle: Subtitle = {
+        ...subtitle,
+        text: splitResult.firstPart,
+        endTime: timeResult.firstEnd,
+        charCount: splitResult.firstPart.replace(/\n/g, '').length,
+        isLong: splitResult.firstPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS,
+        suggestion: undefined, // Clear suggestions for new segments
+        suggestionLoading: false,
+        recentlyEdited: false,
+        canUndo: false,
+        previousText: undefined
+      };
+      
+      const secondSubtitle: Subtitle = {
+        ...subtitle,
+        id: subtitle.id + 1, // Will be renumbered properly below
+        text: splitResult.secondPart,
+        startTime: timeResult.secondStart,
+        charCount: splitResult.secondPart.replace(/\n/g, '').length,
+        isLong: splitResult.secondPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS,
+        suggestion: undefined, // Clear suggestions for new segments
+        suggestionLoading: false,
+        recentlyEdited: false,
+        canUndo: false,
+        previousText: undefined
+      };
+      
+      // Create new array with split subtitles
+      const newSubtitles = [
+        ...prev.slice(0, subtitleIndex),
+        firstSubtitle,
+        secondSubtitle,
+        ...prev.slice(subtitleIndex + 1)
+      ];
+      
+      // Renumber all IDs to maintain sequence
+      const renumberedSubtitles = newSubtitles.map((sub, index) => ({
+        ...sub,
+        id: index + 1
+      }));
+      
+      console.log(`✂️ Split subtitle ${id} into two parts:`, {
+        original: subtitle.text,
+        first: splitResult.firstPart,
+        second: splitResult.secondPart,
+        ratio: splitResult.firstRatio
+      });
+      
+      return renumberedSubtitles;
+    });
+    
+    // Also update original subtitles if they exist
+    setOriginalSubtitles(prev => {
+      if (prev.length === 0) return prev;
+      
+      const subtitleIndex = prev.findIndex(sub => sub.id === id);
+      if (subtitleIndex === -1) return prev;
+      
+      const subtitle = prev[subtitleIndex];
+      const splitResult = splitTextIntelligently(subtitle.text);
+      
+      if (!splitResult.secondPart) return prev;
+      
+      const timeResult = splitTimeProportionally(
+        subtitle.startTime, 
+        subtitle.endTime, 
+        splitResult.firstRatio
+      );
+      
+      const firstSubtitle: Subtitle = {
+        ...subtitle,
+        text: splitResult.firstPart,
+        endTime: timeResult.firstEnd,
+        charCount: splitResult.firstPart.replace(/\n/g, '').length,
+        isLong: splitResult.firstPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS
+      };
+      
+      const secondSubtitle: Subtitle = {
+        ...subtitle,
+        id: subtitle.id + 1,
+        text: splitResult.secondPart,
+        startTime: timeResult.secondStart,
+        charCount: splitResult.secondPart.replace(/\n/g, '').length,
+        isLong: splitResult.secondPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS
+      };
+      
+      const newSubtitles = [
+        ...prev.slice(0, subtitleIndex),
+        firstSubtitle,
+        secondSubtitle,
+        ...prev.slice(subtitleIndex + 1)
+      ];
+      
+      return newSubtitles.map((sub, index) => ({
+        ...sub,
+        id: index + 1
+      }));
+    });
+    
+    // Clear global undo since structure changed
+    setPreviousSubtitles(null);
+  }, []);
   
   const hasTotalLengthErrors = useMemo(() => translatedSubtitles.some(sub => sub.isLong), [translatedSubtitles]);
   
@@ -369,6 +495,7 @@ const App: React.FC = () => {
             onUpdateSuggestion={handleUpdateSuggestion}
             onAcceptSuggestion={handleAcceptSuggestion}
             onUndoSubtitle={handleUndoSubtitle}
+            onSplitSubtitle={handleSplitSubtitle}
           />
         )}
       </main>
