@@ -103,24 +103,30 @@ CRITICAL FORMATTING RULES (MUST BE FOLLOWED):
 4. MUST use line breaks (\\n) to split into 2 lines when text is longer than 37 characters
 5. Split at natural word boundaries (spaces), never break words
 6. Both lines should be roughly equal length when possible
-7. If original wording doesn't fit in 2 lines with character limits, REPHRASE to convey the same meaning
-8. Rephrasing is encouraged when needed to meet the strict limits
-9. Result must be natural and clear for subtitle display
-10. Do not add quotes, explanations, or extra text
+7. PRESERVE THE ORIGINAL LANGUAGE - do not translate to English or any other language
+8. If original wording doesn't fit in 2 lines with character limits, REPHRASE in the SAME LANGUAGE
+9. Rephrasing is encouraged when needed to meet the strict limits, but KEEP THE SAME LANGUAGE
+10. Result must be natural and clear for subtitle display in the original language
+11. Do not add quotes, explanations, or extra text
 
 STEP-BY-STEP PROCESS:
-1. Count total characters (without spaces and line breaks)
-2. If ≤37 characters: keep as single line
-3. If >37 characters: attempt to split into 2 lines at a natural word boundary
-4. If splitting doesn't work within limits, REPHRASE to make it shorter
-5. Ensure line 1 is ≤37 characters
-6. Ensure line 2 is ≤37 characters  
-7. Ensure total characters ≤74
-8. NEVER exceed 2 lines - rephrase if necessary
+1. IDENTIFY the original language of the text
+2. Count total characters (without spaces and line breaks)
+3. If ≤37 characters: keep as single line in the SAME LANGUAGE
+4. If >37 characters: attempt to split into 2 lines at a natural word boundary in the SAME LANGUAGE
+5. If splitting doesn't work within limits, REPHRASE in the SAME LANGUAGE to make it shorter
+6. Ensure line 1 is ≤37 characters
+7. Ensure line 2 is ≤37 characters  
+8. Ensure total characters ≤74
+9. NEVER exceed 2 lines - rephrase if necessary in the SAME LANGUAGE
+10. DOUBLE-CHECK that the output is in the same language as the input
 
-EXAMPLE:
-Input: "This is a very long subtitle that needs to be split properly"
-Output: "This is a very long subtitle\\nthat needs to be split properly"
+EXAMPLES:
+English Input: "This is a very long subtitle that needs to be split properly"
+English Output: "This is a very long subtitle\\nthat needs to be split properly"
+
+Swedish Input: "Det här är en mycket lång undertext som behöver delas upp ordentligt"
+Swedish Output: "Det här är en mycket lång undertext\\nsom behöver delas upp ordentligt"
 
 Original subtitle: "${text}"
 
@@ -154,10 +160,12 @@ STRICT REQUIREMENTS - NO EXCEPTIONS:
 - Total characters (excluding \\n): MUST be ≤${MAX_TOTAL_CHARS}
 - Each line: MUST be ≤${MAX_LINE_CHARS} characters  
 - MAXIMUM 2 lines only - never use more than 2 lines
-- MUST split long text into 2 lines using \\n
+- PRESERVE THE ORIGINAL LANGUAGE - do not translate to English or any other language
+- MUST split long text into 2 lines using \\n in the SAME LANGUAGE
 - Split at word boundaries, never break words
-- If still too long, REPHRASE aggressively while preserving the core meaning
+- If still too long, REPHRASE aggressively in the SAME LANGUAGE while preserving the core meaning
 - Rephrasing is required if original wording cannot fit in 2 lines with character limits
+- FINAL OUTPUT MUST BE IN THE SAME LANGUAGE AS THE INPUT
 
 Text to fix: "${formattedText}"
 
