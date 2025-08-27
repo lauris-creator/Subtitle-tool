@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { MAX_TOTAL_CHARS } from '../constants';
+import { MAX_TOTAL_CHARS, MAX_LINE_CHARS } from '../constants';
 
 // Environment variables for different AI providers
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
@@ -94,17 +94,27 @@ const makeAICall = async (prompt: string, retries = 3, delay = 2000): Promise<st
 };
 
 export const getShortenedSubtitle = async (text: string): Promise<string> => {
-  const initialPrompt = `You are a professional subtitle editor. Your task is to revise the following subtitle text to be under ${MAX_TOTAL_CHARS} characters.
+  const initialPrompt = `You are a professional subtitle editor. Your task is to reformat the following subtitle text to meet strict subtitle formatting requirements.
 
-The revision must follow these rules strictly:
-1. Retain the exact same meaning as the original.
-2. Keep the wording as close to the original as possible. Make only minimal, necessary changes to meet the character limit.
-3. The result must be natural and clear for a subtitle.
-4. CRITICAL: The final output's character count MUST be less than ${MAX_TOTAL_CHARS}. This is the most important rule.
+FORMATTING RULES (ALL MUST BE FOLLOWED):
+1. Maximum ${MAX_TOTAL_CHARS} characters total (including spaces and line breaks)
+2. Maximum ${MAX_LINE_CHARS} characters per line (no line can exceed this)
+3. Use line breaks (\\n) to split into multiple lines if needed
+4. Maintain the exact same meaning as the original
+5. Keep original wording as much as possible - only make changes if absolutely necessary to meet the character limits
+6. If original wording doesn't fit, you may rephrase while preserving meaning
+7. Result must be natural and clear for subtitle display
+8. Do not add quotes, explanations, or extra text
 
-Do not add any extra text, explanations, or quotes. Only provide the revised subtitle text.
+PROCESS:
+- Look at the entire subtitle as one unit
+- Check if it needs to be split across lines
+- Ensure each line is ≤${MAX_LINE_CHARS} characters
+- Ensure total characters (without \\n) is ≤${MAX_TOTAL_CHARS}
 
-Original text: "${text}"`;
+Original subtitle: "${text}"
+
+Provide the properly formatted subtitle:`;
 
   try {
     const initialResponse = await makeAICall(initialPrompt);
@@ -114,29 +124,47 @@ Original text: "${text}"`;
       return "Suggestion unavailable (blocked or empty).";
     }
 
-    let shortenedText = initialResponse.trim().replace(/"/g, '');
+    let formattedText = initialResponse.trim().replace(/"/g, '');
 
-    // If the first attempt is still too long, try a second, more forceful attempt.
-    if (shortenedText.length > MAX_TOTAL_CHARS) {
-      console.warn(`Initial suggestion was too long (${shortenedText.length} chars). Retrying with a more forceful prompt...`);
+    // Validate the AI response meets our requirements
+    const lines = formattedText.split('\n');
+    const totalChars = formattedText.replace(/\n/g, '').length;
+    const longestLine = Math.max(...lines.map(line => line.length));
+
+    if (totalChars > MAX_TOTAL_CHARS || longestLine > MAX_LINE_CHARS) {
+      console.warn(`AI suggestion doesn't meet requirements. Total: ${totalChars} chars, Longest line: ${longestLine} chars. Retrying...`);
       
-      const retryPrompt = `The following subtitle is too long. Shorten it to be under ${MAX_TOTAL_CHARS} characters. This is a strict limit. Retain the original meaning. Do not add any extra commentary.
+      const retryPrompt = `The previous formatting attempt failed. Please reformat this subtitle more strictly:
 
-Text to shorten: "${shortenedText}"`;
+REQUIREMENTS:
+- Total characters (excluding line breaks): MAXIMUM ${MAX_TOTAL_CHARS}
+- Each line: MAXIMUM ${MAX_LINE_CHARS} characters
+- Use \\n for line breaks
+- Preserve meaning but prioritize meeting the character limits
+
+Text to reformat: "${formattedText}"
+
+Provide a properly formatted version:`;
 
       const refinedResponse = await makeAICall(retryPrompt);
 
       if (refinedResponse) {
-        shortenedText = refinedResponse.trim().replace(/"/g, '');
-        if (shortenedText.length > MAX_TOTAL_CHARS) {
-          console.warn(`Suggestion is STILL too long after retry (${shortenedText.length} chars). The user will need to edit manually.`);
+        formattedText = refinedResponse.trim().replace(/"/g, '');
+        
+        // Final validation
+        const finalLines = formattedText.split('\n');
+        const finalTotalChars = formattedText.replace(/\n/g, '').length;
+        const finalLongestLine = Math.max(...finalLines.map(line => line.length));
+        
+        if (finalTotalChars > MAX_TOTAL_CHARS || finalLongestLine > MAX_LINE_CHARS) {
+          console.warn(`AI still couldn't meet requirements after retry. Manual editing needed.`);
         }
       } else {
-        console.error("AI API response on retry was empty or blocked. Returning the oversized first suggestion.");
+        console.error("AI API response on retry was empty or blocked.");
       }
     }
         
-    return shortenedText;
+    return formattedText;
 
   } catch (error) {
     console.error("AI API call failed after retries:", error);
