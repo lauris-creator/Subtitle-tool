@@ -309,7 +309,8 @@ const App: React.FC = () => {
         isLong: splitResult.firstPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS,
         suggestion: undefined, // Clear suggestions for new segments
         suggestionLoading: false,
-        recentlyEdited: false,
+        recentlyEdited: true, // Mark as recently edited to keep in view
+        editedAt: Date.now(),
         canUndo: false,
         previousText: undefined
       };
@@ -323,7 +324,8 @@ const App: React.FC = () => {
         isLong: splitResult.secondPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS,
         suggestion: undefined, // Clear suggestions for new segments
         suggestionLoading: false,
-        recentlyEdited: false,
+        recentlyEdited: true, // Mark as recently edited to keep in view
+        editedAt: Date.now(),
         canUndo: false,
         previousText: undefined
       };
@@ -348,6 +350,7 @@ const App: React.FC = () => {
         second: splitResult.secondPart,
         ratio: splitResult.firstRatio
       });
+      console.log(`📋 Split segments marked as 'recently edited' - will remain visible in current filter until manually changed`);
       
       return renumberedSubtitles;
     });
@@ -375,7 +378,9 @@ const App: React.FC = () => {
         text: splitResult.firstPart,
         endTime: timeResult.firstEnd,
         charCount: splitResult.firstPart.replace(/\n/g, '').length,
-        isLong: splitResult.firstPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS
+        isLong: splitResult.firstPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS,
+        recentlyEdited: true, // Mark as recently edited to keep in view
+        editedAt: Date.now()
       };
       
       const secondSubtitle: Subtitle = {
@@ -384,7 +389,9 @@ const App: React.FC = () => {
         text: splitResult.secondPart,
         startTime: timeResult.secondStart,
         charCount: splitResult.secondPart.replace(/\n/g, '').length,
-        isLong: splitResult.secondPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS
+        isLong: splitResult.secondPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS,
+        recentlyEdited: true, // Mark as recently edited to keep in view
+        editedAt: Date.now()
       };
       
       const newSubtitles = [
