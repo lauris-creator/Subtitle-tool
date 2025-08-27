@@ -94,27 +94,34 @@ const makeAICall = async (prompt: string, retries = 3, delay = 2000): Promise<st
 };
 
 export const getShortenedSubtitle = async (text: string): Promise<string> => {
-  const initialPrompt = `You are a professional subtitle editor. Your task is to reformat the following subtitle text to meet strict subtitle formatting requirements.
+  const initialPrompt = `You are a professional subtitle editor. Your task is to reformat the following subtitle text to meet STRICT subtitle formatting requirements.
 
-FORMATTING RULES (ALL MUST BE FOLLOWED):
-1. Maximum ${MAX_TOTAL_CHARS} characters total (including spaces and line breaks)
-2. Maximum ${MAX_LINE_CHARS} characters per line (no line can exceed this)
-3. Use line breaks (\\n) to split into multiple lines if needed
-4. Maintain the exact same meaning as the original
-5. Keep original wording as much as possible - only make changes if absolutely necessary to meet the character limits
-6. If original wording doesn't fit, you may rephrase while preserving meaning
-7. Result must be natural and clear for subtitle display
-8. Do not add quotes, explanations, or extra text
+CRITICAL FORMATTING RULES (MUST BE FOLLOWED):
+1. MAXIMUM ${MAX_TOTAL_CHARS} characters total (count all characters except line breaks)
+2. MAXIMUM ${MAX_LINE_CHARS} characters per line (each line must be ≤37 characters)
+3. MUST use line breaks (\\n) to split into multiple lines when needed
+4. If text is longer than 37 characters, split it into 2 lines
+5. Split at natural word boundaries (spaces), never break words
+6. Both lines should be roughly equal length when possible
+7. Maintain exact meaning - rephrase ONLY if necessary to meet limits
+8. Result must be natural and clear for subtitle display
+9. Do not add quotes, explanations, or extra text
 
-PROCESS:
-- Look at the entire subtitle as one unit
-- Check if it needs to be split across lines
-- Ensure each line is ≤${MAX_LINE_CHARS} characters
-- Ensure total characters (without \\n) is ≤${MAX_TOTAL_CHARS}
+STEP-BY-STEP PROCESS:
+1. Count total characters (without spaces and line breaks)
+2. If ≤37 characters: keep as single line
+3. If >37 characters: split into 2 lines at a natural word boundary
+4. Ensure line 1 is ≤37 characters
+5. Ensure line 2 is ≤37 characters  
+6. Ensure total characters ≤74
+
+EXAMPLE:
+Input: "This is a very long subtitle that needs to be split properly"
+Output: "This is a very long subtitle\\nthat needs to be split properly"
 
 Original subtitle: "${text}"
 
-Provide the properly formatted subtitle:`;
+Provide the properly formatted subtitle with line breaks:`;
 
   try {
     const initialResponse = await makeAICall(initialPrompt);
@@ -134,17 +141,22 @@ Provide the properly formatted subtitle:`;
     if (totalChars > MAX_TOTAL_CHARS || longestLine > MAX_LINE_CHARS) {
       console.warn(`AI suggestion doesn't meet requirements. Total: ${totalChars} chars, Longest line: ${longestLine} chars. Retrying...`);
       
-      const retryPrompt = `The previous formatting attempt failed. Please reformat this subtitle more strictly:
+      const retryPrompt = `FAILED ATTEMPT - The previous formatting did not meet requirements. 
 
-REQUIREMENTS:
-- Total characters (excluding line breaks): MAXIMUM ${MAX_TOTAL_CHARS}
-- Each line: MAXIMUM ${MAX_LINE_CHARS} characters
-- Use \\n for line breaks
-- Preserve meaning but prioritize meeting the character limits
+CURRENT ISSUES:
+- Total chars: ${totalChars}/${MAX_TOTAL_CHARS} (${totalChars > MAX_TOTAL_CHARS ? 'TOO LONG' : 'OK'})
+- Longest line: ${longestLine}/${MAX_LINE_CHARS} chars (${longestLine > MAX_LINE_CHARS ? 'TOO LONG' : 'OK'})
 
-Text to reformat: "${formattedText}"
+STRICT REQUIREMENTS - NO EXCEPTIONS:
+- Total characters (excluding \\n): MUST be ≤${MAX_TOTAL_CHARS}
+- Each line: MUST be ≤${MAX_LINE_CHARS} characters
+- MUST split long text into 2 lines using \\n
+- Split at word boundaries, never break words
+- If still too long, shorten the text while preserving meaning
 
-Provide a properly formatted version:`;
+Text to fix: "${formattedText}"
+
+Provide a correctly formatted version that meets ALL requirements:`;
 
       const refinedResponse = await makeAICall(retryPrompt);
 
@@ -161,6 +173,31 @@ Provide a properly formatted version:`;
         }
       } else {
         console.error("AI API response on retry was empty or blocked.");
+      }
+    }
+
+    // Final post-processing: ensure proper line breaking even if AI failed
+    const finalLines = formattedText.split('\n');
+    const finalTotalChars = formattedText.replace(/\n/g, '').length;
+    
+    // If we still have issues, apply emergency formatting
+    if (finalLines.some(line => line.length > MAX_LINE_CHARS) && finalLines.length === 1) {
+      // Single line too long - force split at word boundary
+      const words = formattedText.split(' ');
+      let line1 = '';
+      let line2 = '';
+      
+      for (const word of words) {
+        if ((line1 + ' ' + word).trim().length <= MAX_LINE_CHARS) {
+          line1 = (line1 + ' ' + word).trim();
+        } else {
+          line2 = (line2 + ' ' + word).trim();
+        }
+      }
+      
+      if (line1 && line2) {
+        formattedText = line1 + '\n' + line2;
+        console.log('Applied emergency line splitting');
       }
     }
         
