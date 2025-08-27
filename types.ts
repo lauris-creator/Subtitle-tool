@@ -11,4 +11,6 @@ export interface Subtitle {
   suggestionLoading?: boolean;
   recentlyEdited?: boolean;
   editedAt?: number;
+  previousText?: string; // For individual undo
+  canUndo?: boolean;
 }

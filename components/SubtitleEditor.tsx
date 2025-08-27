@@ -19,6 +19,7 @@ interface SubtitleEditorProps {
   onUpdateSubtitle: (id: number, newText: string) => void;
   onUpdateSuggestion: (id: number, newSuggestion: string) => void;
   onAcceptSuggestion: (id: number) => void;
+  onUndoSubtitle: (id: number) => void;
 }
 
 const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {

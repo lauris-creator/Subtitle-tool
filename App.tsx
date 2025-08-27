@@ -19,6 +19,7 @@ const App: React.FC = () => {
   const [showLongLinesOnly, setShowLongLinesOnly] = useState<boolean>(false);
   const [fileName, setFileName] = useState<string>('');
   const [sessionRestored, setSessionRestored] = useState<boolean>(false);
+  const [isGeneratingAll, setIsGeneratingAll] = useState<boolean>(false);
 
   // Restore session on component mount
   useEffect(() => {
@@ -105,14 +106,16 @@ const App: React.FC = () => {
         const now = Date.now();
         return prev.map(sub => sub.id === id ? { 
           ...sub, 
+          previousText: sub.text, // Store previous text for undo
           text: line, 
           charCount, 
           isLong,
           recentlyEdited: true,
-          editedAt: now
+          editedAt: now,
+          canUndo: true
         } : sub)
     });
-    setPreviousSubtitles(null); // Manual edit clears undo
+    setPreviousSubtitles(null); // Manual edit clears global undo
   }, []);
 
   const handleUpdateSuggestion = useCallback((id: number, newSuggestion: string) => {
@@ -198,12 +201,77 @@ const App: React.FC = () => {
       console.log('🗑️ Session cleared. Starting fresh!');
     }
   };
+
+  const handleUndoSubtitle = useCallback((id: number) => {
+    setTranslatedSubtitles(prev => prev.map(sub => {
+      if (sub.id === id && sub.previousText) {
+        const charCount = sub.previousText.replace(/\n/g, '').length;
+        const isLong = charCount > MAX_TOTAL_CHARS;
+        return {
+          ...sub,
+          text: sub.previousText,
+          charCount,
+          isLong,
+          previousText: undefined,
+          canUndo: false,
+          recentlyEdited: false
+        };
+      }
+      return sub;
+    }));
+  }, []);
+
+  const handleGenerateAllSuggestions = useCallback(async () => {
+    const problematicSubs = translatedSubtitles.filter(sub => 
+      sub.isLong || sub.text.split('\n').some(line => line.length > MAX_LINE_CHARS)
+    );
+    
+    if (problematicSubs.length === 0) return;
+    
+    setIsGeneratingAll(true);
+    
+    // Generate suggestions for all problematic subtitles sequentially to avoid rate limits
+    for (const sub of problematicSubs) {
+      try {
+        setTranslatedSubtitles(prev => prev.map(s => 
+          s.id === sub.id ? { ...s, suggestionLoading: true } : s
+        ));
+        
+        const suggestion = await getShortenedSubtitle(sub.text);
+        
+        setTranslatedSubtitles(prev => prev.map(s => 
+          s.id === sub.id ? { ...s, suggestion, suggestionLoading: false } : s
+        ));
+        
+        // Small delay to prevent rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+      } catch (error) {
+        console.error(`Error generating suggestion for subtitle ${sub.id}:`, error);
+        const errorMessage = error instanceof Error && error.message === 'RATE_LIMIT_EXCEEDED'
+          ? "Rate limit exceeded."
+          : "Error fetching suggestion.";
+        
+        setTranslatedSubtitles(prev => prev.map(s => 
+          s.id === sub.id ? { ...s, suggestion: errorMessage, suggestionLoading: false } : s
+        ));
+      }
+    }
+    
+    setIsGeneratingAll(false);
+    console.log(`✨ Generated suggestions for ${problematicSubs.length} problematic subtitles`);
+  }, [translatedSubtitles]);
   
   const hasTotalLengthErrors = useMemo(() => translatedSubtitles.some(sub => sub.isLong), [translatedSubtitles]);
   
   const hasLongLines = useMemo(() => 
     translatedSubtitles.some(sub => 
       sub.text.split('\n').some(line => line.length > MAX_LINE_CHARS)
+    ), [translatedSubtitles]);
+
+  const hasProblematicSubs = useMemo(() => 
+    translatedSubtitles.some(sub => 
+      sub.isLong || sub.text.split('\n').some(line => line.length > MAX_LINE_CHARS)
     ), [translatedSubtitles]);
 
   const filteredSubtitles = useMemo(() => {
@@ -246,6 +314,9 @@ const App: React.FC = () => {
         onUndo={handleUndo}
         canUndo={canUndo}
         onClearSession={handleClearSession}
+        onGenerateAllSuggestions={handleGenerateAllSuggestions}
+        hasProblematicSubs={hasProblematicSubs}
+        isGeneratingAll={isGeneratingAll}
       />
 
       <main className="flex-grow container mx-auto p-4 md:p-8">
@@ -280,6 +351,7 @@ const App: React.FC = () => {
             onUpdateSubtitle={handleUpdateSubtitle}
             onUpdateSuggestion={handleUpdateSuggestion}
             onAcceptSuggestion={handleAcceptSuggestion}
+            onUndoSubtitle={handleUndoSubtitle}
           />
         )}
       </main>

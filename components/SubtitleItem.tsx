@@ -1,7 +1,7 @@
 import React from 'react';
 import { Subtitle } from '../types';
 import { MAX_LINE_CHARS, MAX_TOTAL_CHARS } from '../constants';
-import { CheckIcon, SparklesIcon, XIcon, WarningIcon, RefreshIcon } from './icons/Icons';
+import { CheckIcon, SparklesIcon, XIcon, WarningIcon, RefreshIcon, UndoIcon } from './icons/Icons';
 
 interface SubtitleItemProps {
   subtitle: Subtitle;
@@ -11,6 +11,7 @@ interface SubtitleItemProps {
   onUpdateSubtitle: (id: number, newText: string) => void;
   onUpdateSuggestion: (id: number, newSuggestion: string) => void;
   onAcceptSuggestion: (id: number) => void;
+  onUndoSubtitle: (id: number) => void;
 }
 
 const splitText = (text: string): [string, string] => {
@@ -45,6 +46,7 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
   onUpdateSubtitle,
   onUpdateSuggestion,
   onAcceptSuggestion,
+  onUndoSubtitle,
 }) => {
   const [splitSuggestionLine1, splitSuggestionLine2] = subtitle.suggestion ? splitText(subtitle.suggestion) : ['', ''];
   const suggestionCharCount = subtitle.suggestion?.replace(/\n/g, '').length ?? 0;
@@ -84,6 +86,15 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
                   <span className="text-green-400 text-xs bg-green-900/50 px-2 py-1 rounded ml-2">
                     ✓ Recently edited
                   </span>
+                )}
+                {subtitle.canUndo && (
+                  <button
+                    onClick={() => onUndoSubtitle(subtitle.id)}
+                    className="ml-2 p-1 text-xs rounded text-gray-400 hover:text-white hover:bg-gray-600 transition-colors"
+                    title="Undo changes to this subtitle"
+                  >
+                    <UndoIcon className="h-4 w-4" />
+                  </button>
                 )}
                 {hasLongLine && (
                   <WarningIcon className="h-4 w-4 ml-2 text-red-400" title={`A line exceeds ${MAX_LINE_CHARS} characters.`} />

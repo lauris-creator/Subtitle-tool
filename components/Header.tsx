@@ -1,5 +1,5 @@
 import React from 'react';
-import { DownloadIcon, ScissorsIcon, UndoIcon, TrashIcon } from './icons/Icons';
+import { DownloadIcon, ScissorsIcon, UndoIcon, TrashIcon, BulkSparklesIcon } from './icons/Icons';
 import Logo from './Logo';
 
 interface HeaderProps {
@@ -10,9 +10,12 @@ interface HeaderProps {
   onUndo: () => void;
   canUndo: boolean;
   onClearSession: () => void;
+  onGenerateAllSuggestions: () => void;
+  hasProblematicSubs: boolean;
+  isGeneratingAll: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ onDownload, hasTranslatedSubs, onSplitAll, hasLongLines, onUndo, canUndo, onClearSession }) => {
+const Header: React.FC<HeaderProps> = ({ onDownload, hasTranslatedSubs, onSplitAll, hasLongLines, onUndo, canUndo, onClearSession, onGenerateAllSuggestions, hasProblematicSubs, isGeneratingAll }) => {
   return (
     <header className="bg-gray-800 shadow-md sticky top-0 z-10">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -39,6 +42,17 @@ const Header: React.FC<HeaderProps> = ({ onDownload, hasTranslatedSubs, onSplitA
               >
                 <UndoIcon className="h-5 w-5 mr-2" />
                 Undo
+              </button>
+            )}
+            {hasTranslatedSubs && hasProblematicSubs && (
+              <button
+                onClick={onGenerateAllSuggestions}
+                disabled={isGeneratingAll}
+                className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 disabled:bg-gray-500 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
+                title="Generate AI suggestions for all problematic subtitles"
+              >
+                <BulkSparklesIcon className="h-5 w-5 mr-2" />
+                {isGeneratingAll ? 'Generating...' : 'Generate All'}
               </button>
             )}
             {hasTranslatedSubs && hasLongLines && (
