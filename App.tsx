@@ -20,6 +20,7 @@ const App: React.FC = () => {
   const [fileName, setFileName] = useState<string>('');
   const [sessionRestored, setSessionRestored] = useState<boolean>(false);
   const [isGeneratingAll, setIsGeneratingAll] = useState<boolean>(false);
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
 
   // Restore session on component mount
   useEffect(() => {
@@ -229,13 +230,23 @@ const App: React.FC = () => {
     if (problematicSubs.length === 0) return;
     
     setIsGeneratingAll(true);
+    setBulkProgress({ current: 0, total: problematicSubs.length });
+    
+    console.log(`🚀 Starting bulk generation for ${problematicSubs.length} problematic subtitles...`);
     
     // Generate suggestions for all problematic subtitles sequentially to avoid rate limits
-    for (const sub of problematicSubs) {
+    for (let i = 0; i < problematicSubs.length; i++) {
+      const sub = problematicSubs[i];
+      const currentIndex = i + 1;
+      
       try {
+        // Update progress and set loading state
+        setBulkProgress({ current: currentIndex, total: problematicSubs.length });
         setTranslatedSubtitles(prev => prev.map(s => 
           s.id === sub.id ? { ...s, suggestionLoading: true } : s
         ));
+        
+        console.log(`📝 Processing subtitle ${currentIndex}/${problematicSubs.length} (ID: ${sub.id})`);
         
         const suggestion = await getShortenedSubtitle(sub.text);
         
@@ -243,11 +254,15 @@ const App: React.FC = () => {
           s.id === sub.id ? { ...s, suggestion, suggestionLoading: false } : s
         ));
         
-        // Small delay to prevent rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log(`✅ Completed subtitle ${currentIndex}/${problematicSubs.length}`);
+        
+        // Small delay to prevent rate limiting (except for the last item)
+        if (i < problematicSubs.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
         
       } catch (error) {
-        console.error(`Error generating suggestion for subtitle ${sub.id}:`, error);
+        console.error(`❌ Error generating suggestion for subtitle ${sub.id}:`, error);
         const errorMessage = error instanceof Error && error.message === 'RATE_LIMIT_EXCEEDED'
           ? "Rate limit exceeded."
           : "Error fetching suggestion.";
@@ -259,7 +274,8 @@ const App: React.FC = () => {
     }
     
     setIsGeneratingAll(false);
-    console.log(`✨ Generated suggestions for ${problematicSubs.length} problematic subtitles`);
+    setBulkProgress(null);
+    console.log(`🎉 Bulk generation completed! Generated suggestions for ${problematicSubs.length} subtitles`);
   }, [translatedSubtitles]);
   
   const hasTotalLengthErrors = useMemo(() => translatedSubtitles.some(sub => sub.isLong), [translatedSubtitles]);
@@ -317,6 +333,7 @@ const App: React.FC = () => {
         onGenerateAllSuggestions={handleGenerateAllSuggestions}
         hasProblematicSubs={hasProblematicSubs}
         isGeneratingAll={isGeneratingAll}
+        bulkProgress={bulkProgress}
       />
 
       <main className="flex-grow container mx-auto p-4 md:p-8">

@@ -13,9 +13,10 @@ interface HeaderProps {
   onGenerateAllSuggestions: () => void;
   hasProblematicSubs: boolean;
   isGeneratingAll: boolean;
+  bulkProgress: { current: number; total: number } | null;
 }
 
-const Header: React.FC<HeaderProps> = ({ onDownload, hasTranslatedSubs, onSplitAll, hasLongLines, onUndo, canUndo, onClearSession, onGenerateAllSuggestions, hasProblematicSubs, isGeneratingAll }) => {
+const Header: React.FC<HeaderProps> = ({ onDownload, hasTranslatedSubs, onSplitAll, hasLongLines, onUndo, canUndo, onClearSession, onGenerateAllSuggestions, hasProblematicSubs, isGeneratingAll, bulkProgress }) => {
   return (
     <header className="bg-gray-800 shadow-md sticky top-0 z-10">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -52,7 +53,11 @@ const Header: React.FC<HeaderProps> = ({ onDownload, hasTranslatedSubs, onSplitA
                 title="Generate AI suggestions for all problematic subtitles"
               >
                 <BulkSparklesIcon className="h-5 w-5 mr-2" />
-                {isGeneratingAll ? 'Generating...' : 'Generate All'}
+                {isGeneratingAll && bulkProgress 
+                  ? `Generating ${bulkProgress.current}/${bulkProgress.total}` 
+                  : isGeneratingAll 
+                    ? 'Starting...' 
+                    : 'Generate All'}
               </button>
             )}
             {hasTranslatedSubs && hasLongLines && (
