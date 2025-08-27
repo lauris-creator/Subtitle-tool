@@ -140,7 +140,7 @@ Provide the properly formatted subtitle with line breaks:`;
       return "Suggestion unavailable (blocked or empty).";
     }
 
-    let formattedText = initialResponse.trim().replace(/"/g, '');
+    let formattedText = initialResponse.trim().replace(/"/g, '').replace(/\\n/g, '\n');
 
     // Validate the AI response meets our requirements
     const lines = formattedText.split('\n');
@@ -174,7 +174,7 @@ Provide a correctly formatted version that meets ALL requirements:`;
       const refinedResponse = await makeAICall(retryPrompt);
 
       if (refinedResponse) {
-        formattedText = refinedResponse.trim().replace(/"/g, '');
+        formattedText = refinedResponse.trim().replace(/"/g, '').replace(/\\n/g, '\n');
         
         // Final validation
         const finalLines = formattedText.split('\n');

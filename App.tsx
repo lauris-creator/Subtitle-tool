@@ -45,21 +45,15 @@ const App: React.FC = () => {
     }
   }, [originalSubtitles, translatedSubtitles, fileName, sessionRestored]);
 
-  // Clear "recently edited" status after 10 seconds
+  // Clear "recently edited" status when filters change (not after timeout)
   useEffect(() => {
-    const recentlyEditedItems = translatedSubtitles.filter(sub => sub.recentlyEdited);
-    if (recentlyEditedItems.length === 0) return;
-
-    const timeout = setTimeout(() => {
-      setTranslatedSubtitles(prev => prev.map(sub => ({
-        ...sub,
-        recentlyEdited: false,
-        editedAt: undefined
-      })));
-    }, 10000); // 10 seconds
-
-    return () => clearTimeout(timeout);
-  }, [translatedSubtitles]);
+    // Clear recently edited when user changes filters
+    setTranslatedSubtitles(prev => prev.map(sub => ({
+      ...sub,
+      recentlyEdited: false,
+      editedAt: undefined
+    })));
+  }, [showErrorsOnly, showLongLinesOnly]); // Clear when filters change
 
   const handleFileUpload = (content: string, type: 'original' | 'translated', name: string) => {
     const subs = parseSrt(content);
