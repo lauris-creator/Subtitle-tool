@@ -99,21 +99,24 @@ export const getShortenedSubtitle = async (text: string): Promise<string> => {
 CRITICAL FORMATTING RULES (MUST BE FOLLOWED):
 1. MAXIMUM ${MAX_TOTAL_CHARS} characters total (count all characters except line breaks)
 2. MAXIMUM ${MAX_LINE_CHARS} characters per line (each line must be ≤37 characters)
-3. MUST use line breaks (\\n) to split into multiple lines when needed
-4. If text is longer than 37 characters, split it into 2 lines
+3. MAXIMUM 2 lines only - never use more than 2 lines
+4. MUST use line breaks (\\n) to split into 2 lines when text is longer than 37 characters
 5. Split at natural word boundaries (spaces), never break words
 6. Both lines should be roughly equal length when possible
-7. Maintain exact meaning - rephrase ONLY if necessary to meet limits
-8. Result must be natural and clear for subtitle display
-9. Do not add quotes, explanations, or extra text
+7. If original wording doesn't fit in 2 lines with character limits, REPHRASE to convey the same meaning
+8. Rephrasing is encouraged when needed to meet the strict limits
+9. Result must be natural and clear for subtitle display
+10. Do not add quotes, explanations, or extra text
 
 STEP-BY-STEP PROCESS:
 1. Count total characters (without spaces and line breaks)
 2. If ≤37 characters: keep as single line
-3. If >37 characters: split into 2 lines at a natural word boundary
-4. Ensure line 1 is ≤37 characters
-5. Ensure line 2 is ≤37 characters  
-6. Ensure total characters ≤74
+3. If >37 characters: attempt to split into 2 lines at a natural word boundary
+4. If splitting doesn't work within limits, REPHRASE to make it shorter
+5. Ensure line 1 is ≤37 characters
+6. Ensure line 2 is ≤37 characters  
+7. Ensure total characters ≤74
+8. NEVER exceed 2 lines - rephrase if necessary
 
 EXAMPLE:
 Input: "This is a very long subtitle that needs to be split properly"
@@ -149,10 +152,12 @@ CURRENT ISSUES:
 
 STRICT REQUIREMENTS - NO EXCEPTIONS:
 - Total characters (excluding \\n): MUST be ≤${MAX_TOTAL_CHARS}
-- Each line: MUST be ≤${MAX_LINE_CHARS} characters
+- Each line: MUST be ≤${MAX_LINE_CHARS} characters  
+- MAXIMUM 2 lines only - never use more than 2 lines
 - MUST split long text into 2 lines using \\n
 - Split at word boundaries, never break words
-- If still too long, shorten the text while preserving meaning
+- If still too long, REPHRASE aggressively while preserving the core meaning
+- Rephrasing is required if original wording cannot fit in 2 lines with character limits
 
 Text to fix: "${formattedText}"
 
@@ -177,8 +182,15 @@ Provide a correctly formatted version that meets ALL requirements:`;
     }
 
     // Final post-processing: ensure proper line breaking even if AI failed
-    const finalLines = formattedText.split('\n');
+    let finalLines = formattedText.split('\n');
     const finalTotalChars = formattedText.replace(/\n/g, '').length;
+    
+    // Enforce maximum 2 lines rule
+    if (finalLines.length > 2) {
+      console.warn('AI output exceeded 2 lines, truncating to 2 lines');
+      finalLines = finalLines.slice(0, 2);
+      formattedText = finalLines.join('\n');
+    }
     
     // If we still have issues, apply emergency formatting
     if (finalLines.some(line => line.length > MAX_LINE_CHARS) && finalLines.length === 1) {
@@ -199,6 +211,13 @@ Provide a correctly formatted version that meets ALL requirements:`;
         formattedText = line1 + '\n' + line2;
         console.log('Applied emergency line splitting');
       }
+    }
+    
+    // Final check: ensure we never exceed 2 lines
+    const emergencyLines = formattedText.split('\n');
+    if (emergencyLines.length > 2) {
+      formattedText = emergencyLines.slice(0, 2).join('\n');
+      console.log('Enforced 2-line maximum in post-processing');
     }
         
     return formattedText;
