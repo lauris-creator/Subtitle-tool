@@ -55,7 +55,10 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
   const lineCounts = translatedLines.map(line => line.length);
 
   return (
-    <div className={`p-4 transition-colors ${subtitle.isLong ? 'bg-red-900/20' : 'hover:bg-gray-700/50'}`}>
+    <div className={`p-4 transition-colors ${
+      subtitle.recentlyEdited ? 'bg-green-900/20 border-l-4 border-green-500' : 
+      subtitle.isLong ? 'bg-red-900/20' : 'hover:bg-gray-700/50'
+    }`}>
       <div className="flex flex-col md:flex-row gap-4">
         {showTimecodes && (
           <div className="md:w-1/6 text-sm text-gray-400 font-mono flex-shrink-0">
@@ -77,6 +80,11 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
             <div className="flex justify-between items-start">
                <div className="flex items-center">
                 <label className="text-xs font-bold text-gray-500 uppercase">Translated</label>
+                {subtitle.recentlyEdited && (
+                  <span className="text-green-400 text-xs bg-green-900/50 px-2 py-1 rounded ml-2">
+                    ✓ Recently edited
+                  </span>
+                )}
                 {hasLongLine && (
                   <WarningIcon className="h-4 w-4 ml-2 text-red-400" title={`A line exceeds ${MAX_LINE_CHARS} characters.`} />
                 )}

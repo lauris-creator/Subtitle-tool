@@ -45,6 +45,22 @@ const App: React.FC = () => {
     }
   }, [originalSubtitles, translatedSubtitles, fileName, sessionRestored]);
 
+  // Clear "recently edited" status after 10 seconds
+  useEffect(() => {
+    const recentlyEditedItems = translatedSubtitles.filter(sub => sub.recentlyEdited);
+    if (recentlyEditedItems.length === 0) return;
+
+    const timeout = setTimeout(() => {
+      setTranslatedSubtitles(prev => prev.map(sub => ({
+        ...sub,
+        recentlyEdited: false,
+        editedAt: undefined
+      })));
+    }, 10000); // 10 seconds
+
+    return () => clearTimeout(timeout);
+  }, [translatedSubtitles]);
+
   const handleFileUpload = (content: string, type: 'original' | 'translated', name: string) => {
     const subs = parseSrt(content);
     setPreviousSubtitles(null); // Clear undo history on new file upload
@@ -92,7 +108,15 @@ const App: React.FC = () => {
         const line = newText.replace(/<br\s*\/?>/gi, '\n');
         const charCount = line.replace(/\n/g, '').length;
         const isLong = charCount > MAX_TOTAL_CHARS;
-        return prev.map(sub => sub.id === id ? { ...sub, text: line, charCount, isLong } : sub)
+        const now = Date.now();
+        return prev.map(sub => sub.id === id ? { 
+          ...sub, 
+          text: line, 
+          charCount, 
+          isLong,
+          recentlyEdited: true,
+          editedAt: now
+        } : sub)
     });
     setPreviousSubtitles(null); // Manual edit clears undo
   }, []);
@@ -197,6 +221,11 @@ const App: React.FC = () => {
 
     return translatedSubtitles.filter(sub => {
       const lineLengthExceeded = sub.text.split('\n').some(line => line.length > MAX_LINE_CHARS);
+      
+      // Always show recently edited items (sticky behavior)
+      if (sub.recentlyEdited) {
+        return true;
+      }
       
       if (showErrorsOnly && showLongLinesOnly) {
         return sub.isLong || lineLengthExceeded;

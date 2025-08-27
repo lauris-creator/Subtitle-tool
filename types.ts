@@ -9,4 +9,6 @@ export interface Subtitle {
   isLong: boolean;
   suggestion?: string;
   suggestionLoading?: boolean;
+  recentlyEdited?: boolean;
+  editedAt?: number;
 }
