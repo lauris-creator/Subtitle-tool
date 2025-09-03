@@ -20,6 +20,8 @@ const App: React.FC = () => {
   const [showLongLinesOnly, setShowLongLinesOnly] = useState<boolean>(false);
   const [fileName, setFileName] = useState<string>('');
   const [sessionRestored, setSessionRestored] = useState<boolean>(false);
+  const [maxTotalChars, setMaxTotalChars] = useState<number>(MAX_TOTAL_CHARS);
+  const [maxLineChars, setMaxLineChars] = useState<number>(MAX_LINE_CHARS);
 
   // Restore session on component mount
   useEffect(() => {
@@ -85,7 +87,7 @@ const App: React.FC = () => {
     setTranslatedSubtitles(prev => {
         const line = newText.replace(/<br\s*\/?>/gi, '\n');
         const charCount = line.replace(/\n/g, '').length;
-        const isLong = charCount > MAX_TOTAL_CHARS;
+        const isLong = charCount > maxTotalChars;
         const now = Date.now();
         return prev.map(sub => sub.id === id ? { 
           ...sub, 
@@ -99,7 +101,7 @@ const App: React.FC = () => {
         } : sub)
     });
     setPreviousSubtitles(null); // Manual edit clears global undo
-  }, []);
+  }, [maxTotalChars]);
 
   const handleDownload = () => {
     if (translatedSubtitles.length === 0) return;
@@ -119,20 +121,20 @@ const App: React.FC = () => {
     setPreviousSubtitles(translatedSubtitles); // Save state for undo
     const newSubtitles = translatedSubtitles.map(sub => {
       const lines = sub.text.split('\n');
-      const needsSplitting = lines.some(line => line.length > MAX_LINE_CHARS);
+      const needsSplitting = lines.some(line => line.length > maxLineChars);
   
       if (!needsSplitting) {
         return sub;
       }
   
       const newLines = lines.flatMap(line => {
-        if (line.length <= MAX_LINE_CHARS) {
+        if (line.length <= maxLineChars) {
           return [line];
         }
         
-        let breakPoint = line.substring(0, MAX_LINE_CHARS + 1).lastIndexOf(' ');
+        let breakPoint = line.substring(0, maxLineChars + 1).lastIndexOf(' ');
         if (breakPoint <= 0) { // No space found or at the beginning
-          breakPoint = MAX_LINE_CHARS;
+          breakPoint = maxLineChars;
         }
   
         const line1 = line.substring(0, breakPoint).trim();
@@ -149,7 +151,7 @@ const App: React.FC = () => {
         ...sub,
         text: newText,
         charCount: newCharCount,
-        isLong: newCharCount > MAX_TOTAL_CHARS,
+        isLong: newCharCount > maxTotalChars,
       };
     });
     setTranslatedSubtitles(newSubtitles);
@@ -178,7 +180,7 @@ const App: React.FC = () => {
     setTranslatedSubtitles(prev => prev.map(sub => {
       if (sub.id === id && sub.previousText) {
         const charCount = sub.previousText.replace(/\n/g, '').length;
-        const isLong = charCount > MAX_TOTAL_CHARS;
+        const isLong = charCount > maxTotalChars;
         return {
           ...sub,
           text: sub.previousText,
@@ -191,7 +193,7 @@ const App: React.FC = () => {
       }
       return sub;
     }));
-  }, []);
+  }, [maxTotalChars]);
 
   const handleSplitSubtitle = useCallback((id: number) => {
     setTranslatedSubtitles(prev => {
@@ -219,7 +221,7 @@ const App: React.FC = () => {
         text: splitResult.firstPart,
         endTime: timeResult.firstEnd,
         charCount: splitResult.firstPart.replace(/\n/g, '').length,
-        isLong: splitResult.firstPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS,
+        isLong: splitResult.firstPart.replace(/\n/g, '').length > maxTotalChars,
         recentlyEdited: true, // Mark as recently edited to keep in view
         editedAt: Date.now(),
         canUndo: false,
@@ -232,7 +234,7 @@ const App: React.FC = () => {
         text: splitResult.secondPart,
         startTime: timeResult.secondStart,
         charCount: splitResult.secondPart.replace(/\n/g, '').length,
-        isLong: splitResult.secondPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS,
+        isLong: splitResult.secondPart.replace(/\n/g, '').length > maxTotalChars,
         recentlyEdited: true, // Mark as recently edited to keep in view
         editedAt: Date.now(),
         canUndo: false,
@@ -287,7 +289,7 @@ const App: React.FC = () => {
         text: splitResult.firstPart,
         endTime: timeResult.firstEnd,
         charCount: splitResult.firstPart.replace(/\n/g, '').length,
-        isLong: splitResult.firstPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS,
+        isLong: splitResult.firstPart.replace(/\n/g, '').length > maxTotalChars,
         recentlyEdited: true, // Mark as recently edited to keep in view
         editedAt: Date.now()
       };
@@ -298,7 +300,7 @@ const App: React.FC = () => {
         text: splitResult.secondPart,
         startTime: timeResult.secondStart,
         charCount: splitResult.secondPart.replace(/\n/g, '').length,
-        isLong: splitResult.secondPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS,
+        isLong: splitResult.secondPart.replace(/\n/g, '').length > maxTotalChars,
         recentlyEdited: true, // Mark as recently edited to keep in view
         editedAt: Date.now()
       };
@@ -318,14 +320,14 @@ const App: React.FC = () => {
     
     // Clear global undo since structure changed
     setPreviousSubtitles(null);
-  }, []);
+  }, [maxTotalChars]);
   
   const hasTotalLengthErrors = useMemo(() => translatedSubtitles.some(sub => sub.isLong), [translatedSubtitles]);
   
   const hasLongLines = useMemo(() => 
     translatedSubtitles.some(sub => 
-      sub.text.split('\n').some(line => line.length > MAX_LINE_CHARS)
-    ), [translatedSubtitles]);
+      sub.text.split('\n').some(line => line.length > maxLineChars)
+    ), [translatedSubtitles, maxLineChars]);
 
   const filteredSubtitles = useMemo(() => {
     const hasActiveFilter = showErrorsOnly || showLongLinesOnly;
@@ -335,7 +337,7 @@ const App: React.FC = () => {
     }
 
     return translatedSubtitles.filter(sub => {
-      const lineLengthExceeded = sub.text.split('\n').some(line => line.length > MAX_LINE_CHARS);
+      const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
       
       // Always show recently edited items (sticky behavior)
       if (sub.recentlyEdited) {
@@ -353,7 +355,7 @@ const App: React.FC = () => {
       }
       return false; 
     });
-  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly]);
+  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, maxLineChars]);
 
   const canUndo = previousSubtitles !== null;
 
@@ -377,8 +379,44 @@ const App: React.FC = () => {
             </div>
             <p className="text-gray-400 text-lg mb-8">
               Upload your translated .srt file to begin. You can also upload an original version for side-by-side comparison.
-              The app will automatically flag lines longer than 74 characters and help you fix them.
+              The app will automatically flag lines longer than the specified character limits and help you fix them.
             </p>
+            
+            {/* Character Limit Settings */}
+            <div className="bg-gray-800 rounded-lg p-6 mb-8 max-w-md mx-auto">
+              <h3 className="text-lg font-semibold text-white mb-4">Character Limits</h3>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="maxTotalChars" className="block text-sm font-medium text-gray-300 mb-2">
+                    Maximum Total Characters
+                  </label>
+                  <input
+                    type="number"
+                    id="maxTotalChars"
+                    value={maxTotalChars}
+                    onChange={(e) => setMaxTotalChars(Number(e.target.value))}
+                    min="1"
+                    max="200"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="maxLineChars" className="block text-sm font-medium text-gray-300 mb-2">
+                    Maximum Characters Per Line
+                  </label>
+                  <input
+                    type="number"
+                    id="maxLineChars"
+                    value={maxLineChars}
+                    onChange={(e) => setMaxLineChars(Number(e.target.value))}
+                    min="1"
+                    max="100"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                  />
+                </div>
+              </div>
+            </div>
+            
             <div className="flex flex-col md:flex-row gap-8 justify-center">
               <FileUpload label="Upload Translated SRT" onFileUpload={(c, n) => handleFileUpload(c, 'translated', n)} />
               <FileUpload label="Upload Original SRT (Optional)" onFileUpload={(c, n) => handleFileUpload(c, 'original', n)} />
@@ -400,6 +438,8 @@ const App: React.FC = () => {
             onUpdateSubtitle={handleUpdateSubtitle}
             onUndoSubtitle={handleUndoSubtitle}
             onSplitSubtitle={handleSplitSubtitle}
+            maxTotalChars={maxTotalChars}
+            maxLineChars={maxLineChars}
           />
         )}
       </main>

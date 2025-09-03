@@ -1,6 +1,5 @@
 import React from 'react';
 import { Subtitle } from '../types';
-import { MAX_LINE_CHARS, MAX_TOTAL_CHARS } from '../constants';
 import { WarningIcon, UndoIcon, SplitIcon, ClockIcon } from './icons/Icons';
 import { calculateDuration, formatDuration } from '../utils/timeUtils';
 import { validateSplit } from '../utils/textUtils';
@@ -12,6 +11,8 @@ interface SubtitleItemProps {
   onUpdateSubtitle: (id: number, newText: string) => void;
   onUndoSubtitle: (id: number) => void;
   onSplitSubtitle: (id: number) => void;
+  maxTotalChars: number;
+  maxLineChars: number;
 }
 
 const SubtitleItem: React.FC<SubtitleItemProps> = ({
@@ -21,8 +22,10 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
   onUpdateSubtitle,
   onUndoSubtitle,
   onSplitSubtitle,
+  maxTotalChars,
+  maxLineChars,
 }) => {
-  const hasLongLine = subtitle.text.split('\n').some(line => line.length > MAX_LINE_CHARS);
+  const hasLongLine = subtitle.text.split('\n').some(line => line.length > maxLineChars);
   
   // Calculate duration for this subtitle
   const duration = calculateDuration(subtitle.startTime, subtitle.endTime);
@@ -87,7 +90,7 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
                   </button>
                 )}
                 {hasLongLine && (
-                  <WarningIcon className="h-4 w-4 ml-2 text-red-400" title={`A line exceeds ${MAX_LINE_CHARS} characters.`} />
+                  <WarningIcon className="h-4 w-4 ml-2 text-red-400" title={`A line exceeds ${maxLineChars} characters.`} />
                 )}
               </div>
               <span className={`text-sm font-semibold ${subtitle.isLong ? 'text-red-400' : 'text-green-400'}`}>
@@ -102,7 +105,7 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
                     {lineCounts.map((count, index) => (
                         <span 
                             key={index} 
-                            className={`leading-6 ${count > MAX_LINE_CHARS ? 'text-red-400 font-bold' : ''}`}
+                            className={`leading-6 ${count > maxLineChars ? 'text-red-400 font-bold' : ''}`}
                         >
                             {count}
                         </span>

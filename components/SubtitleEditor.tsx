@@ -18,6 +18,8 @@ interface SubtitleEditorProps {
   onUpdateSubtitle: (id: number, newText: string) => void;
   onUndoSubtitle: (id: number) => void;
   onSplitSubtitle: (id: number) => void;
+  maxTotalChars: number;
+  maxLineChars: number;
 }
 
 const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
@@ -33,6 +35,8 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     hasLongLines,
     showLongLinesOnly,
     setShowLongLinesOnly,
+    maxTotalChars,
+    maxLineChars,
     ...itemProps 
   } = props;
   
@@ -47,7 +51,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
              <button
               onClick={() => setShowErrorsOnly(!showErrorsOnly)}
               className={`flex items-center text-sm transition-colors ${showErrorsOnly ? 'text-sky-400' : 'text-gray-300 hover:text-white'}`}
-              title={showErrorsOnly ? 'Show All' : 'Show entries with total length > 74 chars'}
+              title={showErrorsOnly ? 'Show All' : `Show entries with total length > ${maxTotalChars} chars`}
             >
               <FilterIcon className="h-5 w-5 mr-1" />
               <span>Total Length</span>
@@ -57,7 +61,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
              <button
               onClick={() => setShowLongLinesOnly(!showLongLinesOnly)}
               className={`flex items-center text-sm transition-colors ${showLongLinesOnly ? 'text-sky-400' : 'text-gray-300 hover:text-white'}`}
-              title={showLongLinesOnly ? 'Show All' : 'Show entries with a line > 37 chars'}
+              title={showLongLinesOnly ? 'Show All' : `Show entries with a line > ${maxLineChars} chars`}
             >
               <LineLengthIcon className="h-5 w-5 mr-1" />
               <span>Line Length</span>
@@ -91,6 +95,8 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
               subtitle={subtitle}
               showOriginal={showOriginal}
               showTimecodes={showTimecodes}
+              maxTotalChars={maxTotalChars}
+              maxLineChars={maxLineChars}
               {...itemProps}
             />
           ))}
