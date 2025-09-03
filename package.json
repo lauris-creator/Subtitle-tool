@@ -10,8 +10,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
-    "openai": "^5.13.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Subtitle } from './types';
 import { parseSrt, formatSrt } from './services/srtParser';
-import { getShortenedSubtitle } from './services/aiService';
 import { sessionManager } from './services/sessionManager';
 import { splitTextIntelligently } from './utils/textUtils';
 import { splitTimeProportionally } from './utils/timeUtils';
@@ -21,8 +20,6 @@ const App: React.FC = () => {
   const [showLongLinesOnly, setShowLongLinesOnly] = useState<boolean>(false);
   const [fileName, setFileName] = useState<string>('');
   const [sessionRestored, setSessionRestored] = useState<boolean>(false);
-  const [isGeneratingAll, setIsGeneratingAll] = useState<boolean>(false);
-  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
 
   // Restore session on component mount
   useEffect(() => {
@@ -84,23 +81,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSuggestion = useCallback(async (id: number) => {
-    setTranslatedSubtitles(prev => prev.map(sub => sub.id === id ? { ...sub, suggestionLoading: true } : sub));
-    try {
-      const subToFix = translatedSubtitles.find(sub => sub.id === id);
-      if (subToFix) {
-        const suggestion = await getShortenedSubtitle(subToFix.text);
-        setTranslatedSubtitles(prev => prev.map(sub => sub.id === id ? { ...sub, suggestion, suggestionLoading: false } : sub));
-      }
-    } catch (error) {
-      console.error("Error getting suggestion:", error);
-      const errorMessage = error instanceof Error && error.message === 'RATE_LIMIT_EXCEEDED'
-        ? "Rate limit exceeded. Please wait a moment."
-        : "Error fetching suggestion.";
-      setTranslatedSubtitles(prev => prev.map(sub => sub.id === id ? { ...sub, suggestion: errorMessage, suggestionLoading: false } : sub));
-    }
-  }, [translatedSubtitles]);
-
   const handleUpdateSubtitle = useCallback((id: number, newText: string) => {
     setTranslatedSubtitles(prev => {
         const line = newText.replace(/<br\s*\/?>/gi, '\n');
@@ -120,17 +100,6 @@ const App: React.FC = () => {
     });
     setPreviousSubtitles(null); // Manual edit clears global undo
   }, []);
-
-  const handleUpdateSuggestion = useCallback((id: number, newSuggestion: string) => {
-      setTranslatedSubtitles(prev => prev.map(sub => sub.id === id ? { ...sub, suggestion: newSuggestion } : sub));
-  }, []);
-
-  const handleAcceptSuggestion = useCallback((id: number) => {
-    const subToUpdate = translatedSubtitles.find(sub => sub.id === id);
-    if (subToUpdate && subToUpdate.suggestion) {
-      handleUpdateSubtitle(id, subToUpdate.suggestion);
-    }
-  }, [translatedSubtitles, handleUpdateSubtitle]);
 
   const handleDownload = () => {
     if (translatedSubtitles.length === 0) return;
@@ -224,62 +193,6 @@ const App: React.FC = () => {
     }));
   }, []);
 
-  const handleGenerateAllSuggestions = useCallback(async () => {
-    const problematicSubs = translatedSubtitles.filter(sub => 
-      sub.isLong || sub.text.split('\n').some(line => line.length > MAX_LINE_CHARS)
-    );
-    
-    if (problematicSubs.length === 0) return;
-    
-    setIsGeneratingAll(true);
-    setBulkProgress({ current: 0, total: problematicSubs.length });
-    
-    console.log(`🚀 Starting bulk generation for ${problematicSubs.length} problematic subtitles...`);
-    
-    // Generate suggestions for all problematic subtitles sequentially to avoid rate limits
-    for (let i = 0; i < problematicSubs.length; i++) {
-      const sub = problematicSubs[i];
-      const currentIndex = i + 1;
-      
-      try {
-        // Update progress and set loading state
-        setBulkProgress({ current: currentIndex, total: problematicSubs.length });
-        setTranslatedSubtitles(prev => prev.map(s => 
-          s.id === sub.id ? { ...s, suggestionLoading: true } : s
-        ));
-        
-        console.log(`📝 Processing subtitle ${currentIndex}/${problematicSubs.length} (ID: ${sub.id})`);
-        
-        const suggestion = await getShortenedSubtitle(sub.text);
-        
-        setTranslatedSubtitles(prev => prev.map(s => 
-          s.id === sub.id ? { ...s, suggestion, suggestionLoading: false } : s
-        ));
-        
-        console.log(`✅ Completed subtitle ${currentIndex}/${problematicSubs.length}`);
-        
-        // Small delay to prevent rate limiting (except for the last item)
-        if (i < problematicSubs.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        
-      } catch (error) {
-        console.error(`❌ Error generating suggestion for subtitle ${sub.id}:`, error);
-        const errorMessage = error instanceof Error && error.message === 'RATE_LIMIT_EXCEEDED'
-          ? "Rate limit exceeded."
-          : "Error fetching suggestion.";
-        
-        setTranslatedSubtitles(prev => prev.map(s => 
-          s.id === sub.id ? { ...s, suggestion: errorMessage, suggestionLoading: false } : s
-        ));
-      }
-    }
-    
-    setIsGeneratingAll(false);
-    setBulkProgress(null);
-    console.log(`🎉 Bulk generation completed! Generated suggestions for ${problematicSubs.length} subtitles`);
-  }, [translatedSubtitles]);
-
   const handleSplitSubtitle = useCallback((id: number) => {
     setTranslatedSubtitles(prev => {
       const subtitleIndex = prev.findIndex(sub => sub.id === id);
@@ -307,8 +220,6 @@ const App: React.FC = () => {
         endTime: timeResult.firstEnd,
         charCount: splitResult.firstPart.replace(/\n/g, '').length,
         isLong: splitResult.firstPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS,
-        suggestion: undefined, // Clear suggestions for new segments
-        suggestionLoading: false,
         recentlyEdited: true, // Mark as recently edited to keep in view
         editedAt: Date.now(),
         canUndo: false,
@@ -322,8 +233,6 @@ const App: React.FC = () => {
         startTime: timeResult.secondStart,
         charCount: splitResult.secondPart.replace(/\n/g, '').length,
         isLong: splitResult.secondPart.replace(/\n/g, '').length > MAX_TOTAL_CHARS,
-        suggestion: undefined, // Clear suggestions for new segments
-        suggestionLoading: false,
         recentlyEdited: true, // Mark as recently edited to keep in view
         editedAt: Date.now(),
         canUndo: false,
@@ -418,11 +327,6 @@ const App: React.FC = () => {
       sub.text.split('\n').some(line => line.length > MAX_LINE_CHARS)
     ), [translatedSubtitles]);
 
-  const hasProblematicSubs = useMemo(() => 
-    translatedSubtitles.some(sub => 
-      sub.isLong || sub.text.split('\n').some(line => line.length > MAX_LINE_CHARS)
-    ), [translatedSubtitles]);
-
   const filteredSubtitles = useMemo(() => {
     const hasActiveFilter = showErrorsOnly || showLongLinesOnly;
 
@@ -463,10 +367,6 @@ const App: React.FC = () => {
         onUndo={handleUndo}
         canUndo={canUndo}
         onClearSession={handleClearSession}
-        onGenerateAllSuggestions={handleGenerateAllSuggestions}
-        hasProblematicSubs={hasProblematicSubs}
-        isGeneratingAll={isGeneratingAll}
-        bulkProgress={bulkProgress}
       />
 
       <main className="flex-grow container mx-auto p-4 md:p-8">
@@ -477,7 +377,7 @@ const App: React.FC = () => {
             </div>
             <p className="text-gray-400 text-lg mb-8">
               Upload your translated .srt file to begin. You can also upload an original version for side-by-side comparison.
-              The app will automatically flag lines longer than 74 characters and help you fix them with AI.
+              The app will automatically flag lines longer than 74 characters and help you fix them.
             </p>
             <div className="flex flex-col md:flex-row gap-8 justify-center">
               <FileUpload label="Upload Translated SRT" onFileUpload={(c, n) => handleFileUpload(c, 'translated', n)} />
@@ -497,10 +397,7 @@ const App: React.FC = () => {
             hasLongLines={hasLongLines}
             showLongLinesOnly={showLongLinesOnly}
             setShowLongLinesOnly={setShowLongLinesOnly}
-            onSuggestion={handleSuggestion}
             onUpdateSubtitle={handleUpdateSubtitle}
-            onUpdateSuggestion={handleUpdateSuggestion}
-            onAcceptSuggestion={handleAcceptSuggestion}
             onUndoSubtitle={handleUndoSubtitle}
             onSplitSubtitle={handleSplitSubtitle}
           />

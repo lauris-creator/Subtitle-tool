@@ -1,7 +1,7 @@
 import React from 'react';
 import { Subtitle } from '../types';
 import { MAX_LINE_CHARS, MAX_TOTAL_CHARS } from '../constants';
-import { CheckIcon, SparklesIcon, XIcon, WarningIcon, RefreshIcon, UndoIcon, SplitIcon, ClockIcon } from './icons/Icons';
+import { WarningIcon, UndoIcon, SplitIcon, ClockIcon } from './icons/Icons';
 import { calculateDuration, formatDuration } from '../utils/timeUtils';
 import { validateSplit } from '../utils/textUtils';
 
@@ -9,53 +9,19 @@ interface SubtitleItemProps {
   subtitle: Subtitle;
   showOriginal: boolean;
   showTimecodes: boolean;
-  onSuggestion: (id: number) => void;
   onUpdateSubtitle: (id: number, newText: string) => void;
-  onUpdateSuggestion: (id: number, newSuggestion: string) => void;
-  onAcceptSuggestion: (id: number) => void;
   onUndoSubtitle: (id: number) => void;
   onSplitSubtitle: (id: number) => void;
 }
-
-const splitText = (text: string): [string, string] => {
-  const words = text.split(' ');
-  let line1 = '';
-  let line2 = '';
-  
-  for (const word of words) {
-    if ((line1 + ' ' + word).trim().length <= MAX_LINE_CHARS) {
-      line1 = (line1 + ' ' + word).trim();
-    } else {
-      line2 = (line2 + ' ' + word).trim();
-    }
-  }
-
-  if (line2.length > MAX_LINE_CHARS) {
-      // simple split if second line is also too long
-      const splitPoint = Math.ceil(text.length / 2);
-      const potentialBreak = text.lastIndexOf(' ', splitPoint);
-      const breakPoint = potentialBreak === -1 ? splitPoint : potentialBreak;
-      return [text.substring(0, breakPoint).trim(), text.substring(breakPoint).trim()];
-  }
-  
-  return [line1, line2];
-};
 
 const SubtitleItem: React.FC<SubtitleItemProps> = ({
   subtitle,
   showOriginal,
   showTimecodes,
-  onSuggestion,
   onUpdateSubtitle,
-  onUpdateSuggestion,
-  onAcceptSuggestion,
   onUndoSubtitle,
   onSplitSubtitle,
 }) => {
-  const [splitSuggestionLine1, splitSuggestionLine2] = subtitle.suggestion ? splitText(subtitle.suggestion) : ['', ''];
-  const suggestionCharCount = subtitle.suggestion?.replace(/\n/g, '').length ?? 0;
-  const isSuggestionLong = suggestionCharCount > MAX_TOTAL_CHARS;
-
   const hasLongLine = subtitle.text.split('\n').some(line => line.length > MAX_LINE_CHARS);
   
   // Calculate duration for this subtitle
@@ -151,65 +117,6 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
             </div>
           </div>
         </div>
-
-        {subtitle.isLong && (
-          <div className="md:w-1/3 flex-shrink-0">
-            <div className="bg-gray-700/50 p-3 rounded-lg">
-              <h4 className="text-sm font-bold text-amber-400 flex items-center mb-2">
-                <WarningIcon className="h-5 w-5 mr-2" />
-                Line too long
-              </h4>
-              {subtitle.suggestionLoading && (
-                 <div className="flex items-center justify-center text-gray-400">
-                    <RefreshIcon className="h-5 w-5 mr-2 animate-spin"/> Generating...
-                 </div>
-              )}
-              {!subtitle.suggestionLoading && !subtitle.suggestion && (
-                <button 
-                  onClick={() => onSuggestion(subtitle.id)} 
-                  className="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  <SparklesIcon className="h-5 w-5 mr-2"/>
-                  Generate Suggestion
-                </button>
-              )}
-              {subtitle.suggestion && (
-                 <div>
-                    <div className="flex justify-between items-center">
-                      <label className="text-xs font-bold text-gray-500 uppercase">AI Suggestion</label>
-                      <span className={`text-sm font-semibold ${isSuggestionLong ? 'text-red-400' : 'text-gray-400'}`}>
-                        {suggestionCharCount} / {MAX_TOTAL_CHARS}
-                      </span>
-                    </div>
-                    <textarea
-                      value={subtitle.suggestion}
-                      onChange={(e) => onUpdateSuggestion(subtitle.id, e.target.value)}
-                      className={`w-full bg-gray-800 text-white p-2 rounded-md border mt-1 resize-none ${isSuggestionLong ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-600 focus:ring-indigo-500 focus:border-indigo-500'}`}
-                      rows={2}
-                    />
-                    <div className="mt-2 text-xs text-gray-400">
-                        <p className="font-bold">Split Preview:</p>
-                        <p className="font-mono p-1 bg-gray-900 rounded">{splitSuggestionLine1}</p>
-                        <p className="font-mono p-1 bg-gray-900 rounded mt-1">{splitSuggestionLine2}</p>
-                    </div>
-                    <div className="flex items-center space-x-2 mt-3">
-                        <button 
-                          onClick={() => onAcceptSuggestion(subtitle.id)}
-                          disabled={isSuggestionLong}
-                          className="flex-grow flex items-center justify-center p-2 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors" title="Accept Suggestion">
-                           <CheckIcon className="h-5 w-5 mr-1"/> Accept
-                        </button>
-                        <button 
-                          onClick={() => onSuggestion(subtitle.id)}
-                          className="p-2 text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-500" title="Regenerate">
-                            <RefreshIcon className="h-5 w-5"/>
-                        </button>
-                    </div>
-                 </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

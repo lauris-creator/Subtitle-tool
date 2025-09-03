@@ -7,8 +7,6 @@ export interface Subtitle {
   originalText?: string;
   charCount: number;
   isLong: boolean;
-  suggestion?: string;
-  suggestionLoading?: boolean;
   recentlyEdited?: boolean;
   editedAt?: number;
   previousText?: string; // For individual undo

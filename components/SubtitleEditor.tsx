@@ -15,10 +15,7 @@ interface SubtitleEditorProps {
   hasLongLines: boolean;
   showLongLinesOnly: boolean;
   setShowLongLinesOnly: (show: boolean) => void;
-  onSuggestion: (id: number) => void;
   onUpdateSubtitle: (id: number, newText: string) => void;
-  onUpdateSuggestion: (id: number, newSuggestion: string) => void;
-  onAcceptSuggestion: (id: number) => void;
   onUndoSubtitle: (id: number) => void;
   onSplitSubtitle: (id: number) => void;
 }
