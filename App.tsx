@@ -62,7 +62,17 @@ const App: React.FC = () => {
     const subs = parseSrt(content);
     setPreviousSubtitles(null); // Clear undo history on new file upload
     if (type === 'translated') {
-      setTranslatedSubtitles(subs);
+      // Apply current character limits to parsed subtitles
+      const processedSubs = subs.map(sub => {
+        const charCount = sub.text.replace(/\n/g, '').length;
+        const isLong = charCount > maxTotalChars;
+        return {
+          ...sub,
+          charCount,
+          isLong
+        };
+      });
+      setTranslatedSubtitles(processedSubs);
       setFileName(name);
       // If original is already loaded, merge them
       if (originalSubtitles.length > 0) {
@@ -82,6 +92,21 @@ const App: React.FC = () => {
       }
     }
   };
+
+  // Recalculate subtitle validation when character limits change
+  useEffect(() => {
+    if (translatedSubtitles.length > 0) {
+      setTranslatedSubtitles(prev => prev.map(sub => {
+        const charCount = sub.text.replace(/\n/g, '').length;
+        const isLong = charCount > maxTotalChars;
+        return {
+          ...sub,
+          charCount,
+          isLong
+        };
+      }));
+    }
+  }, [maxTotalChars, maxLineChars, translatedSubtitles.length]);
 
   const handleUpdateSubtitle = useCallback((id: number, newText: string) => {
     setTranslatedSubtitles(prev => {
