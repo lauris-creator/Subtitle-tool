@@ -92,6 +92,12 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
                 {hasLongLine && (
                   <WarningIcon className="h-4 w-4 ml-2 text-red-400" title={`A line exceeds ${maxLineChars} characters.`} />
                 )}
+                {subtitle.isTooShort && (
+                  <WarningIcon className="h-4 w-4 ml-2 text-orange-400" title="Segment is under 1 second." />
+                )}
+                {subtitle.isTooLong && (
+                  <WarningIcon className="h-4 w-4 ml-2 text-purple-400" title="Segment is over 7 seconds." />
+                )}
               </div>
               <span className={`text-sm font-semibold ${subtitle.isLong ? 'text-red-400' : 'text-green-400'}`}>
                 {subtitle.charCount} chars

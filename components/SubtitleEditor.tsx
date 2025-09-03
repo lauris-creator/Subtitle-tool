@@ -15,6 +15,12 @@ interface SubtitleEditorProps {
   hasLongLines: boolean;
   showLongLinesOnly: boolean;
   setShowLongLinesOnly: (show: boolean) => void;
+  hasTooShortSegments: boolean;
+  showTooShortOnly: boolean;
+  setShowTooShortOnly: (show: boolean) => void;
+  hasTooLongSegments: boolean;
+  showTooLongOnly: boolean;
+  setShowTooLongOnly: (show: boolean) => void;
   onUpdateSubtitle: (id: number, newText: string) => void;
   onUndoSubtitle: (id: number) => void;
   onSplitSubtitle: (id: number) => void;
@@ -35,6 +41,12 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     hasLongLines,
     showLongLinesOnly,
     setShowLongLinesOnly,
+    hasTooShortSegments,
+    showTooShortOnly,
+    setShowTooShortOnly,
+    hasTooLongSegments,
+    showTooLongOnly,
+    setShowTooLongOnly,
     maxTotalChars,
     maxLineChars,
     ...itemProps 
@@ -65,6 +77,26 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             >
               <LineLengthIcon className="h-5 w-5 mr-1" />
               <span>Line Length</span>
+            </button>
+          )}
+          {hasTooShortSegments && (
+             <button
+              onClick={() => setShowTooShortOnly(!showTooShortOnly)}
+              className={`flex items-center text-sm transition-colors ${showTooShortOnly ? 'text-sky-400' : 'text-gray-300 hover:text-white'}`}
+              title={showTooShortOnly ? 'Show All' : 'Show entries under 1 second'}
+            >
+              <ClockIcon className="h-5 w-5 mr-1" />
+              <span>Too Short</span>
+            </button>
+          )}
+          {hasTooLongSegments && (
+             <button
+              onClick={() => setShowTooLongOnly(!showTooLongOnly)}
+              className={`flex items-center text-sm transition-colors ${showTooLongOnly ? 'text-sky-400' : 'text-gray-300 hover:text-white'}`}
+              title={showTooLongOnly ? 'Show All' : 'Show entries over 7 seconds'}
+            >
+              <ClockIcon className="h-5 w-5 mr-1" />
+              <span>Too Long</span>
             </button>
           )}
           {hasOriginalText && (
