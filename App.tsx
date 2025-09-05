@@ -262,39 +262,71 @@ const App: React.FC = () => {
 
   const handleRemoveBreaksFromFiltered = useCallback(() => {
     setPreviousSubtitles(translatedSubtitles); // Save state for undo
-    setTranslatedSubtitles(prev => prev.map(sub => {
-      // Only process subtitles that are currently visible in filtered view
-      const isInFilteredView = filteredSubtitles.some(filteredSub => filteredSub.id === sub.id);
+    setTranslatedSubtitles(prev => {
+      // Calculate current filtered subtitles based on current filter states
+      const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
       
-      if (isInFilteredView && sub.text.includes('\n')) {
-        const singleLineText = sub.text.replace(/\n/g, ' ');
-        const charCount = singleLineText.length;
-        const isLong = charCount > maxTotalChars;
-        const duration = calculateDuration(sub.startTime, sub.endTime);
-        const isTooShort = duration < minDurationSeconds;
-        const isTooLong = duration > maxDurationSeconds;
-        const hasConflict = hasTimecodeConflict({...sub, text: singleLineText}, prev.map(s => 
-          s.id === sub.id ? {...sub, text: singleLineText} : s
-        ));
-        
-        return {
-          ...sub,
-          text: singleLineText,
-          charCount,
-          isLong,
-          duration,
-          isTooShort,
-          isTooLong,
-          hasTimecodeConflict: hasConflict,
-          recentlyEdited: true,
-          editedAt: Date.now(),
-          canUndo: true,
-          previousText: sub.text
-        };
+      let currentFilteredSubtitles = prev;
+      if (hasActiveFilter) {
+        currentFilteredSubtitles = prev.filter(sub => {
+          const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
+          
+          if (showErrorsOnly && showLongLinesOnly) {
+            return sub.isLong || lineLengthExceeded;
+          }
+          if (showErrorsOnly) {
+            return sub.isLong;
+          }
+          if (showLongLinesOnly) {
+            return lineLengthExceeded;
+          }
+          if (showTooShortOnly) {
+            return sub.isTooShort;
+          }
+          if (showTooLongOnly) {
+            return sub.isTooLong;
+          }
+          if (showTimecodeConflictsOnly) {
+            return sub.hasTimecodeConflict;
+          }
+          return false; 
+        });
       }
-      return sub;
-    }));
-  }, [filteredSubtitles, maxTotalChars, minDurationSeconds, maxDurationSeconds]);
+      
+      return prev.map(sub => {
+        // Only process subtitles that are currently visible in filtered view
+        const isInFilteredView = currentFilteredSubtitles.some(filteredSub => filteredSub.id === sub.id);
+        
+        if (isInFilteredView && sub.text.includes('\n')) {
+          const singleLineText = sub.text.replace(/\n/g, ' ');
+          const charCount = singleLineText.length;
+          const isLong = charCount > maxTotalChars;
+          const duration = calculateDuration(sub.startTime, sub.endTime);
+          const isTooShort = duration < minDurationSeconds;
+          const isTooLong = duration > maxDurationSeconds;
+          const hasConflict = hasTimecodeConflict({...sub, text: singleLineText}, prev.map(s => 
+            s.id === sub.id ? {...sub, text: singleLineText} : s
+          ));
+          
+          return {
+            ...sub,
+            text: singleLineText,
+            charCount,
+            isLong,
+            duration,
+            isTooShort,
+            isTooLong,
+            hasTimecodeConflict: hasConflict,
+            recentlyEdited: true,
+            editedAt: Date.now(),
+            canUndo: true,
+            previousText: sub.text
+          };
+        }
+        return sub;
+      });
+    });
+  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
 
   const handleUndoSubtitle = useCallback((id: number) => {
     setTranslatedSubtitles(prev => prev.map(sub => {
