@@ -28,6 +28,7 @@ interface SubtitleEditorProps {
   onRemoveBreaksFromFiltered: () => void;
   hasLongLinesInFiltered: boolean;
   onSplitFilteredLines: () => void;
+  onShowAll: () => void;
   onUpdateSubtitle: (id: number, newText: string) => void;
   onUpdateTimecode: (id: number, newStartTime: string, newEndTime: string) => void;
   onUndoSubtitle: (id: number) => void;
@@ -64,6 +65,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     onRemoveBreaksFromFiltered,
     hasLongLinesInFiltered,
     onSplitFilteredLines,
+    onShowAll,
     maxTotalChars,
     maxLineChars,
     minDurationSeconds,
@@ -78,6 +80,14 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
       <div className="p-4 bg-gray-800/50 border-b border-gray-700 flex justify-between items-center">
         <h3 className="text-lg font-semibold text-white">Subtitle Entries</h3>
         <div className="flex items-center space-x-4">
+          <button
+            onClick={onShowAll}
+            className="flex items-center text-sm transition-colors text-gray-300 hover:text-white"
+            title="Show all subtitles (clear all filters)"
+          >
+            <span className="mr-1">👁️</span>
+            <span>Show All</span>
+          </button>
           {hasTotalLengthErrors && (
              <button
               onClick={() => setShowErrorsOnly(!showErrorsOnly)}

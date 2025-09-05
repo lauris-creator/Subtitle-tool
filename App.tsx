@@ -310,6 +310,14 @@ const App: React.FC = () => {
     }
   };
 
+  const handleShowAll = () => {
+    setShowErrorsOnly(false);
+    setShowLongLinesOnly(false);
+    setShowTooShortOnly(false);
+    setShowTooLongOnly(false);
+    setShowTimecodeConflictsOnly(false);
+  };
+
   const handleRemoveBreaksFromFiltered = useCallback(() => {
     setPreviousSubtitles(translatedSubtitles); // Save state for undo
     setTranslatedSubtitles(prev => {
@@ -561,6 +569,16 @@ const App: React.FC = () => {
   const filteredSubtitles = useMemo(() => {
     const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
 
+    console.log('🔍 Filter Debug:', {
+      hasActiveFilter,
+      translatedSubtitlesLength: translatedSubtitles.length,
+      showErrorsOnly,
+      showLongLinesOnly,
+      showTooShortOnly,
+      showTooLongOnly,
+      showTimecodeConflictsOnly
+    });
+
     if (!hasActiveFilter) {
       return translatedSubtitles;
     }
@@ -731,6 +749,7 @@ const App: React.FC = () => {
             onRemoveBreaksFromFiltered={handleRemoveBreaksFromFiltered}
             hasLongLinesInFiltered={hasLongLinesInFiltered}
             onSplitFilteredLines={handleSplitFilteredLines}
+            onShowAll={handleShowAll}
             onUpdateSubtitle={handleUpdateSubtitle}
             onUpdateTimecode={handleUpdateTimecode}
             onUndoSubtitle={handleUndoSubtitle}
