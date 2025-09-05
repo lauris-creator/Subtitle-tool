@@ -24,6 +24,8 @@ interface SubtitleEditorProps {
   hasTimecodeConflicts: boolean;
   showTimecodeConflictsOnly: boolean;
   setShowTimecodeConflictsOnly: (show: boolean) => void;
+  hasMultiLineInFiltered: boolean;
+  onRemoveBreaksFromFiltered: () => void;
   onUpdateSubtitle: (id: number, newText: string) => void;
   onUpdateTimecode: (id: number, newStartTime: string, newEndTime: string) => void;
   onUndoSubtitle: (id: number) => void;
@@ -56,6 +58,8 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     hasTimecodeConflicts,
     showTimecodeConflictsOnly,
     setShowTimecodeConflictsOnly,
+    hasMultiLineInFiltered,
+    onRemoveBreaksFromFiltered,
     maxTotalChars,
     maxLineChars,
     minDurationSeconds,
@@ -118,6 +122,16 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             >
               <ClockIcon className="h-5 w-5 mr-1" />
               <span>Time Conflicts</span>
+            </button>
+          )}
+          {hasMultiLineInFiltered && (
+             <button
+              onClick={onRemoveBreaksFromFiltered}
+              className="flex items-center text-sm transition-colors text-gray-300 hover:text-white"
+              title="Remove line breaks from all visible subtitles (convert to single line)"
+            >
+              <span className="mr-1">📝</span>
+              <span>Remove Breaks</span>
             </button>
           )}
           {hasOriginalText && (

@@ -260,6 +260,42 @@ const App: React.FC = () => {
     }
   };
 
+  const handleRemoveBreaksFromFiltered = useCallback(() => {
+    setPreviousSubtitles(translatedSubtitles); // Save state for undo
+    setTranslatedSubtitles(prev => prev.map(sub => {
+      // Only process subtitles that are currently visible in filtered view
+      const isInFilteredView = filteredSubtitles.some(filteredSub => filteredSub.id === sub.id);
+      
+      if (isInFilteredView && sub.text.includes('\n')) {
+        const singleLineText = sub.text.replace(/\n/g, ' ');
+        const charCount = singleLineText.length;
+        const isLong = charCount > maxTotalChars;
+        const duration = calculateDuration(sub.startTime, sub.endTime);
+        const isTooShort = duration < minDurationSeconds;
+        const isTooLong = duration > maxDurationSeconds;
+        const hasConflict = hasTimecodeConflict({...sub, text: singleLineText}, prev.map(s => 
+          s.id === sub.id ? {...sub, text: singleLineText} : s
+        ));
+        
+        return {
+          ...sub,
+          text: singleLineText,
+          charCount,
+          isLong,
+          duration,
+          isTooShort,
+          isTooLong,
+          hasTimecodeConflict: hasConflict,
+          recentlyEdited: true,
+          editedAt: Date.now(),
+          canUndo: true,
+          previousText: sub.text
+        };
+      }
+      return sub;
+    }));
+  }, [filteredSubtitles, maxTotalChars, minDurationSeconds, maxDurationSeconds]);
+
   const handleUndoSubtitle = useCallback((id: number) => {
     setTranslatedSubtitles(prev => prev.map(sub => {
       if (sub.id === id && sub.previousText) {
@@ -477,6 +513,9 @@ const App: React.FC = () => {
     });
   }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxLineChars]);
 
+  const hasMultiLineInFiltered = useMemo(() => 
+    filteredSubtitles.some(sub => sub.text.includes('\n')), [filteredSubtitles]);
+
   const canUndo = previousSubtitles !== null;
 
   return (
@@ -605,6 +644,8 @@ const App: React.FC = () => {
             hasTimecodeConflicts={hasTimecodeConflicts}
             showTimecodeConflictsOnly={showTimecodeConflictsOnly}
             setShowTimecodeConflictsOnly={setShowTimecodeConflictsOnly}
+            hasMultiLineInFiltered={hasMultiLineInFiltered}
+            onRemoveBreaksFromFiltered={handleRemoveBreaksFromFiltered}
             onUpdateSubtitle={handleUpdateSubtitle}
             onUpdateTimecode={handleUpdateTimecode}
             onUndoSubtitle={handleUndoSubtitle}
