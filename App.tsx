@@ -534,7 +534,52 @@ const App: React.FC = () => {
             </div>
           </div>
         ) : (
-          <SubtitleEditor 
+          <>
+            {/* Current Limit Settings Display */}
+            <div className="bg-gray-800 rounded-lg p-4 mb-6 max-w-4xl mx-auto">
+              <h3 className="text-lg font-semibold text-white mb-4 text-center">Current Validation Settings</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-gray-700 rounded-lg p-4">
+                  <h4 className="text-md font-semibold text-gray-200 mb-3 flex items-center">
+                    <span className="w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
+                    Character Limits
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-300">Total Characters:</span>
+                      <span className="text-sm font-semibold text-blue-400">{maxTotalChars}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-300">Per Line:</span>
+                      <span className="text-sm font-semibold text-blue-400">{maxLineChars}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-700 rounded-lg p-4">
+                  <h4 className="text-md font-semibold text-gray-200 mb-3 flex items-center">
+                    <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+                    Duration Limits
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-300">Minimum:</span>
+                      <span className="text-sm font-semibold text-green-400">{minDurationSeconds}s</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-300">Maximum:</span>
+                      <span className="text-sm font-semibold text-green-400">{maxDurationSeconds}s</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 text-center">
+                <p className="text-xs text-gray-400">
+                  💡 To change these settings, go back to the upload page
+                </p>
+              </div>
+            </div>
+            
+            <SubtitleEditor 
             subtitles={filteredSubtitles}
             showOriginal={showOriginal && originalSubtitles.length > 0}
             setShowOriginal={setShowOriginal}
@@ -560,6 +605,7 @@ const App: React.FC = () => {
             minDurationSeconds={minDurationSeconds}
             maxDurationSeconds={maxDurationSeconds}
           />
+          </>
         )}
       </main>
     </div>
