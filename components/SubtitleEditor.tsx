@@ -26,6 +26,8 @@ interface SubtitleEditorProps {
   setShowTimecodeConflictsOnly: (show: boolean) => void;
   hasMultiLineInFiltered: boolean;
   onRemoveBreaksFromFiltered: () => void;
+  hasLongLinesInFiltered: boolean;
+  onSplitFilteredLines: () => void;
   onUpdateSubtitle: (id: number, newText: string) => void;
   onUpdateTimecode: (id: number, newStartTime: string, newEndTime: string) => void;
   onUndoSubtitle: (id: number) => void;
@@ -60,6 +62,8 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     setShowTimecodeConflictsOnly,
     hasMultiLineInFiltered,
     onRemoveBreaksFromFiltered,
+    hasLongLinesInFiltered,
+    onSplitFilteredLines,
     maxTotalChars,
     maxLineChars,
     minDurationSeconds,
@@ -132,6 +136,16 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             >
               <span className="mr-1">📝</span>
               <span>Remove Breaks</span>
+            </button>
+          )}
+          {hasLongLinesInFiltered && (
+             <button
+              onClick={onSplitFilteredLines}
+              className="flex items-center text-sm transition-colors text-gray-300 hover:text-white"
+              title="Split long lines in all visible subtitles"
+            >
+              <span className="mr-1">✂️</span>
+              <span>Split Filtered Lines</span>
             </button>
           )}
           {hasOriginalText && (

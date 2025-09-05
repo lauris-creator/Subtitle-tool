@@ -5,8 +5,6 @@ import Logo from './Logo';
 interface HeaderProps {
   onDownload: () => void;
   hasTranslatedSubs: boolean;
-  onSplitAll: () => void;
-  hasLongLines: boolean;
   onUndo: () => void;
   canUndo: boolean;
   onClearSession: () => void;
@@ -19,8 +17,6 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ 
   onDownload, 
   hasTranslatedSubs, 
-  onSplitAll, 
-  hasLongLines, 
   onUndo, 
   canUndo, 
   onClearSession,
@@ -111,16 +107,6 @@ const Header: React.FC<HeaderProps> = ({
               >
                 <UndoIcon className="h-5 w-5 mr-2" />
                 Undo
-              </button>
-            )}
-            {hasTranslatedSubs && hasLongLines && (
-              <button
-                onClick={onSplitAll}
-                className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                title="Automatically split all lines that are longer than 37 characters"
-              >
-                <ScissorsIcon className="h-5 w-5 mr-2" />
-                Split Long Lines
               </button>
             )}
             {hasTranslatedSubs && (

@@ -201,45 +201,95 @@ const App: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleSplitAllLongLines = () => {
+  const handleSplitFilteredLines = useCallback(() => {
     setPreviousSubtitles(translatedSubtitles); // Save state for undo
-    const newSubtitles = translatedSubtitles.map(sub => {
-      const lines = sub.text.split('\n');
-      const needsSplitting = lines.some(line => line.length > maxLineChars);
-  
-      if (!needsSplitting) {
-        return sub;
-      }
-  
-      const newLines = lines.flatMap(line => {
-        if (line.length <= maxLineChars) {
-          return [line];
-        }
-        
-        let breakPoint = line.substring(0, maxLineChars + 1).lastIndexOf(' ');
-        if (breakPoint <= 0) { // No space found or at the beginning
-          breakPoint = maxLineChars;
-        }
-  
-        const line1 = line.substring(0, breakPoint).trim();
-        const line2 = line.substring(breakPoint).trim();
-        
-        // This simple split could still result in line2 being too long, but it handles the most common cases.
-        return [line1, line2].filter(l => l);
-      });
-  
-      const newText = newLines.join('\n');
-      const newCharCount = newText.replace(/\n/g, '').length;
+    setTranslatedSubtitles(prev => {
+      // Calculate current filtered subtitles based on current filter states
+      const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
       
-      return {
-        ...sub,
-        text: newText,
-        charCount: newCharCount,
-        isLong: newCharCount > maxTotalChars,
-      };
+      let currentFilteredSubtitles = prev;
+      if (hasActiveFilter) {
+        currentFilteredSubtitles = prev.filter(sub => {
+          const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
+          
+          if (showErrorsOnly && showLongLinesOnly) {
+            return sub.isLong || lineLengthExceeded;
+          }
+          if (showErrorsOnly) {
+            return sub.isLong;
+          }
+          if (showLongLinesOnly) {
+            return lineLengthExceeded;
+          }
+          if (showTooShortOnly) {
+            return sub.isTooShort;
+          }
+          if (showTooLongOnly) {
+            return sub.isTooLong;
+          }
+          if (showTimecodeConflictsOnly) {
+            return sub.hasTimecodeConflict;
+          }
+          return false; 
+        });
+      }
+      
+      return prev.map(sub => {
+        // Only process subtitles that are currently visible in filtered view
+        const isInFilteredView = currentFilteredSubtitles.some(filteredSub => filteredSub.id === sub.id);
+        
+        if (isInFilteredView) {
+          const lines = sub.text.split('\n');
+          const needsSplitting = lines.some(line => line.length > maxLineChars);
+
+          if (!needsSplitting) {
+            return sub;
+          }
+
+          const newLines = lines.flatMap(line => {
+            if (line.length <= maxLineChars) {
+              return [line];
+            }
+            
+            let breakPoint = line.substring(0, maxLineChars + 1).lastIndexOf(' ');
+            if (breakPoint <= 0) { // No space found or at the beginning
+              breakPoint = maxLineChars;
+            }
+
+            const line1 = line.substring(0, breakPoint).trim();
+            const line2 = line.substring(breakPoint).trim();
+            
+            return [line1, line2].filter(l => l);
+          });
+
+          const newText = newLines.join('\n');
+          const newCharCount = newText.replace(/\n/g, '').length;
+          const duration = calculateDuration(sub.startTime, sub.endTime);
+          const isTooShort = duration < minDurationSeconds;
+          const isTooLong = duration > maxDurationSeconds;
+          const hasConflict = hasTimecodeConflict({...sub, text: newText}, prev.map(s => 
+            s.id === sub.id ? {...sub, text: newText} : s
+          ));
+          
+          return {
+            ...sub,
+            text: newText,
+            charCount: newCharCount,
+            isLong: newCharCount > maxTotalChars,
+            duration,
+            isTooShort,
+            isTooLong,
+            hasTimecodeConflict: hasConflict,
+            recentlyEdited: true,
+            editedAt: Date.now(),
+            canUndo: true,
+            previousText: sub.text
+          };
+        }
+        return sub;
+      });
     });
-    setTranslatedSubtitles(newSubtitles);
-  };
+  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
 
   const handleUndo = () => {
     if (previousSubtitles) {
@@ -548,6 +598,9 @@ const App: React.FC = () => {
   const hasMultiLineInFiltered = useMemo(() => 
     filteredSubtitles.some(sub => sub.text.includes('\n')), [filteredSubtitles]);
 
+  const hasLongLinesInFiltered = useMemo(() => 
+    filteredSubtitles.some(sub => sub.text.split('\n').some(line => line.length > maxLineChars)), [filteredSubtitles, maxLineChars]);
+
   const canUndo = previousSubtitles !== null;
 
   return (
@@ -555,8 +608,6 @@ const App: React.FC = () => {
       <Header 
         onDownload={handleDownload}
         hasTranslatedSubs={translatedSubtitles.length > 0}
-        onSplitAll={handleSplitAllLongLines}
-        hasLongLines={hasLongLines}
         onUndo={handleUndo}
         canUndo={canUndo}
         onClearSession={handleClearSession}
@@ -678,6 +729,8 @@ const App: React.FC = () => {
             setShowTimecodeConflictsOnly={setShowTimecodeConflictsOnly}
             hasMultiLineInFiltered={hasMultiLineInFiltered}
             onRemoveBreaksFromFiltered={handleRemoveBreaksFromFiltered}
+            hasLongLinesInFiltered={hasLongLinesInFiltered}
+            onSplitFilteredLines={handleSplitFilteredLines}
             onUpdateSubtitle={handleUpdateSubtitle}
             onUpdateTimecode={handleUpdateTimecode}
             onUndoSubtitle={handleUndoSubtitle}
