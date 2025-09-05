@@ -26,6 +26,8 @@ interface SubtitleEditorProps {
   onSplitSubtitle: (id: number) => void;
   maxTotalChars: number;
   maxLineChars: number;
+  minDurationSeconds: number;
+  maxDurationSeconds: number;
 }
 
 const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
@@ -49,6 +51,8 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     setShowTooLongOnly,
     maxTotalChars,
     maxLineChars,
+    minDurationSeconds,
+    maxDurationSeconds,
     ...itemProps 
   } = props;
   
@@ -83,7 +87,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
              <button
               onClick={() => setShowTooShortOnly(!showTooShortOnly)}
               className={`flex items-center text-sm transition-colors ${showTooShortOnly ? 'text-sky-400' : 'text-gray-300 hover:text-white'}`}
-              title={showTooShortOnly ? 'Show All' : 'Show entries under 1 second'}
+              title={showTooShortOnly ? 'Show All' : `Show entries under ${minDurationSeconds} second${minDurationSeconds !== 1 ? 's' : ''}`}
             >
               <ClockIcon className="h-5 w-5 mr-1" />
               <span>Too Short</span>
@@ -93,7 +97,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
              <button
               onClick={() => setShowTooLongOnly(!showTooLongOnly)}
               className={`flex items-center text-sm transition-colors ${showTooLongOnly ? 'text-sky-400' : 'text-gray-300 hover:text-white'}`}
-              title={showTooLongOnly ? 'Show All' : 'Show entries over 7 seconds'}
+              title={showTooLongOnly ? 'Show All' : `Show entries over ${maxDurationSeconds} second${maxDurationSeconds !== 1 ? 's' : ''}`}
             >
               <ClockIcon className="h-5 w-5 mr-1" />
               <span>Too Long</span>
@@ -129,6 +133,8 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
               showTimecodes={showTimecodes}
               maxTotalChars={maxTotalChars}
               maxLineChars={maxLineChars}
+              minDurationSeconds={minDurationSeconds}
+              maxDurationSeconds={maxDurationSeconds}
               {...itemProps}
             />
           ))}

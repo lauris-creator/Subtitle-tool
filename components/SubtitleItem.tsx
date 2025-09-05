@@ -13,6 +13,8 @@ interface SubtitleItemProps {
   onSplitSubtitle: (id: number) => void;
   maxTotalChars: number;
   maxLineChars: number;
+  minDurationSeconds: number;
+  maxDurationSeconds: number;
 }
 
 const SubtitleItem: React.FC<SubtitleItemProps> = ({
@@ -24,6 +26,8 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
   onSplitSubtitle,
   maxTotalChars,
   maxLineChars,
+  minDurationSeconds,
+  maxDurationSeconds,
 }) => {
   const hasLongLine = subtitle.text.split('\n').some(line => line.length > maxLineChars);
   
@@ -93,10 +97,10 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
                   <WarningIcon className="h-4 w-4 ml-2 text-red-400" title={`A line exceeds ${maxLineChars} characters.`} />
                 )}
                 {subtitle.isTooShort && (
-                  <WarningIcon className="h-4 w-4 ml-2 text-orange-400" title="Segment is under 1 second." />
+                  <WarningIcon className="h-4 w-4 ml-2 text-orange-400" title={`Segment is under ${minDurationSeconds} second${minDurationSeconds !== 1 ? 's' : ''}.`} />
                 )}
                 {subtitle.isTooLong && (
-                  <WarningIcon className="h-4 w-4 ml-2 text-purple-400" title="Segment is over 7 seconds." />
+                  <WarningIcon className="h-4 w-4 ml-2 text-purple-400" title={`Segment is over ${maxDurationSeconds} second${maxDurationSeconds !== 1 ? 's' : ''}.`} />
                 )}
               </div>
               <span className={`text-sm font-semibold ${subtitle.isLong ? 'text-red-400' : 'text-green-400'}`}>

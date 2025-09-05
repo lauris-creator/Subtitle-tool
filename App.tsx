@@ -24,6 +24,8 @@ const App: React.FC = () => {
   const [sessionRestored, setSessionRestored] = useState<boolean>(false);
   const [maxTotalChars, setMaxTotalChars] = useState<number>(MAX_TOTAL_CHARS);
   const [maxLineChars, setMaxLineChars] = useState<number>(MAX_LINE_CHARS);
+  const [minDurationSeconds, setMinDurationSeconds] = useState<number>(1);
+  const [maxDurationSeconds, setMaxDurationSeconds] = useState<number>(7);
 
   // Restore session on component mount
   useEffect(() => {
@@ -69,8 +71,8 @@ const App: React.FC = () => {
         const charCount = sub.text.replace(/\n/g, '').length;
         const isLong = charCount > maxTotalChars;
         const duration = calculateDuration(sub.startTime, sub.endTime);
-        const isTooShort = duration < 1;
-        const isTooLong = duration > 7;
+        const isTooShort = duration < minDurationSeconds;
+        const isTooLong = duration > maxDurationSeconds;
         return {
           ...sub,
           charCount,
@@ -101,15 +103,15 @@ const App: React.FC = () => {
     }
   };
 
-  // Recalculate subtitle validation when character limits change
+  // Recalculate subtitle validation when limits change
   useEffect(() => {
     if (translatedSubtitles.length > 0) {
       setTranslatedSubtitles(prev => prev.map(sub => {
         const charCount = sub.text.replace(/\n/g, '').length;
         const isLong = charCount > maxTotalChars;
         const duration = calculateDuration(sub.startTime, sub.endTime);
-        const isTooShort = duration < 1;
-        const isTooLong = duration > 7;
+        const isTooShort = duration < minDurationSeconds;
+        const isTooLong = duration > maxDurationSeconds;
         return {
           ...sub,
           charCount,
@@ -120,7 +122,7 @@ const App: React.FC = () => {
         };
       }));
     }
-  }, [maxTotalChars, maxLineChars, translatedSubtitles.length]);
+  }, [maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds, translatedSubtitles.length]);
 
   const handleUpdateSubtitle = useCallback((id: number, newText: string) => {
     setTranslatedSubtitles(prev => {
@@ -135,15 +137,15 @@ const App: React.FC = () => {
           charCount, 
           isLong,
           duration: calculateDuration(sub.startTime, sub.endTime),
-          isTooShort: calculateDuration(sub.startTime, sub.endTime) < 1,
-          isTooLong: calculateDuration(sub.startTime, sub.endTime) > 7,
+          isTooShort: calculateDuration(sub.startTime, sub.endTime) < minDurationSeconds,
+          isTooLong: calculateDuration(sub.startTime, sub.endTime) > maxDurationSeconds,
           recentlyEdited: true,
           editedAt: now,
           canUndo: true
         } : sub)
     });
     setPreviousSubtitles(null); // Manual edit clears global undo
-  }, [maxTotalChars]);
+  }, [maxTotalChars, minDurationSeconds, maxDurationSeconds]);
 
   const handleDownload = () => {
     if (translatedSubtitles.length === 0) return;
@@ -224,8 +226,8 @@ const App: React.FC = () => {
         const charCount = sub.previousText.replace(/\n/g, '').length;
         const isLong = charCount > maxTotalChars;
         const duration = calculateDuration(sub.startTime, sub.endTime);
-        const isTooShort = duration < 1;
-        const isTooLong = duration > 7;
+        const isTooShort = duration < minDurationSeconds;
+        const isTooLong = duration > maxDurationSeconds;
         return {
           ...sub,
           text: sub.previousText,
@@ -241,7 +243,7 @@ const App: React.FC = () => {
       }
       return sub;
     }));
-  }, [maxTotalChars]);
+  }, [maxTotalChars, minDurationSeconds, maxDurationSeconds]);
 
   const handleSplitSubtitle = useCallback((id: number) => {
     setTranslatedSubtitles(prev => {
@@ -271,8 +273,8 @@ const App: React.FC = () => {
         charCount: splitResult.firstPart.replace(/\n/g, '').length,
         isLong: splitResult.firstPart.replace(/\n/g, '').length > maxTotalChars,
         duration: calculateDuration(subtitle.startTime, timeResult.firstEnd),
-        isTooShort: calculateDuration(subtitle.startTime, timeResult.firstEnd) < 1,
-        isTooLong: calculateDuration(subtitle.startTime, timeResult.firstEnd) > 7,
+        isTooShort: calculateDuration(subtitle.startTime, timeResult.firstEnd) < minDurationSeconds,
+        isTooLong: calculateDuration(subtitle.startTime, timeResult.firstEnd) > maxDurationSeconds,
         recentlyEdited: true, // Mark as recently edited to keep in view
         editedAt: Date.now(),
         canUndo: false,
@@ -287,8 +289,8 @@ const App: React.FC = () => {
         charCount: splitResult.secondPart.replace(/\n/g, '').length,
         isLong: splitResult.secondPart.replace(/\n/g, '').length > maxTotalChars,
         duration: calculateDuration(timeResult.secondStart, subtitle.endTime),
-        isTooShort: calculateDuration(timeResult.secondStart, subtitle.endTime) < 1,
-        isTooLong: calculateDuration(timeResult.secondStart, subtitle.endTime) > 7,
+        isTooShort: calculateDuration(timeResult.secondStart, subtitle.endTime) < minDurationSeconds,
+        isTooLong: calculateDuration(timeResult.secondStart, subtitle.endTime) > maxDurationSeconds,
         recentlyEdited: true, // Mark as recently edited to keep in view
         editedAt: Date.now(),
         canUndo: false,
@@ -345,8 +347,8 @@ const App: React.FC = () => {
         charCount: splitResult.firstPart.replace(/\n/g, '').length,
         isLong: splitResult.firstPart.replace(/\n/g, '').length > maxTotalChars,
         duration: calculateDuration(subtitle.startTime, timeResult.firstEnd),
-        isTooShort: calculateDuration(subtitle.startTime, timeResult.firstEnd) < 1,
-        isTooLong: calculateDuration(subtitle.startTime, timeResult.firstEnd) > 7,
+        isTooShort: calculateDuration(subtitle.startTime, timeResult.firstEnd) < minDurationSeconds,
+        isTooLong: calculateDuration(subtitle.startTime, timeResult.firstEnd) > maxDurationSeconds,
         recentlyEdited: true, // Mark as recently edited to keep in view
         editedAt: Date.now()
       };
@@ -359,8 +361,8 @@ const App: React.FC = () => {
         charCount: splitResult.secondPart.replace(/\n/g, '').length,
         isLong: splitResult.secondPart.replace(/\n/g, '').length > maxTotalChars,
         duration: calculateDuration(timeResult.secondStart, subtitle.endTime),
-        isTooShort: calculateDuration(timeResult.secondStart, subtitle.endTime) < 1,
-        isTooLong: calculateDuration(timeResult.secondStart, subtitle.endTime) > 7,
+        isTooShort: calculateDuration(timeResult.secondStart, subtitle.endTime) < minDurationSeconds,
+        isTooLong: calculateDuration(timeResult.secondStart, subtitle.endTime) > maxDurationSeconds,
         recentlyEdited: true, // Mark as recently edited to keep in view
         editedAt: Date.now()
       };
@@ -380,7 +382,7 @@ const App: React.FC = () => {
     
     // Clear global undo since structure changed
     setPreviousSubtitles(null);
-  }, [maxTotalChars]);
+  }, [maxTotalChars, minDurationSeconds, maxDurationSeconds]);
   
   const hasTotalLengthErrors = useMemo(() => translatedSubtitles.some(sub => sub.isLong), [translatedSubtitles]);
   
@@ -489,6 +491,43 @@ const App: React.FC = () => {
               </div>
             </div>
             
+            {/* Duration Limit Settings */}
+            <div className="bg-gray-800 rounded-lg p-6 mb-8 max-w-md mx-auto">
+              <h3 className="text-lg font-semibold text-white mb-4">Duration Limits</h3>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="minDurationSeconds" className="block text-sm font-medium text-gray-300 mb-2">
+                    Minimum Duration (seconds)
+                  </label>
+                  <input
+                    type="number"
+                    id="minDurationSeconds"
+                    value={minDurationSeconds}
+                    onChange={(e) => setMinDurationSeconds(Number(e.target.value))}
+                    min="0.1"
+                    max="10"
+                    step="0.1"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="maxDurationSeconds" className="block text-sm font-medium text-gray-300 mb-2">
+                    Maximum Duration (seconds)
+                  </label>
+                  <input
+                    type="number"
+                    id="maxDurationSeconds"
+                    value={maxDurationSeconds}
+                    onChange={(e) => setMaxDurationSeconds(Number(e.target.value))}
+                    min="1"
+                    max="30"
+                    step="0.1"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                  />
+                </div>
+              </div>
+            </div>
+            
             <div className="flex flex-col md:flex-row gap-8 justify-center">
               <FileUpload label="Upload Translated SRT" onFileUpload={(c, n) => handleFileUpload(c, 'translated', n)} />
               <FileUpload label="Upload Original SRT (Optional)" onFileUpload={(c, n) => handleFileUpload(c, 'original', n)} />
@@ -518,6 +557,8 @@ const App: React.FC = () => {
             onSplitSubtitle={handleSplitSubtitle}
             maxTotalChars={maxTotalChars}
             maxLineChars={maxLineChars}
+            minDurationSeconds={minDurationSeconds}
+            maxDurationSeconds={maxDurationSeconds}
           />
         )}
       </main>
