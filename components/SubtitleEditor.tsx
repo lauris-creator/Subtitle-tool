@@ -21,7 +21,11 @@ interface SubtitleEditorProps {
   hasTooLongSegments: boolean;
   showTooLongOnly: boolean;
   setShowTooLongOnly: (show: boolean) => void;
+  hasTimecodeConflicts: boolean;
+  showTimecodeConflictsOnly: boolean;
+  setShowTimecodeConflictsOnly: (show: boolean) => void;
   onUpdateSubtitle: (id: number, newText: string) => void;
+  onUpdateTimecode: (id: number, newStartTime: string, newEndTime: string) => void;
   onUndoSubtitle: (id: number) => void;
   onSplitSubtitle: (id: number) => void;
   maxTotalChars: number;
@@ -49,6 +53,9 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     hasTooLongSegments,
     showTooLongOnly,
     setShowTooLongOnly,
+    hasTimecodeConflicts,
+    showTimecodeConflictsOnly,
+    setShowTimecodeConflictsOnly,
     maxTotalChars,
     maxLineChars,
     minDurationSeconds,
@@ -101,6 +108,16 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             >
               <ClockIcon className="h-5 w-5 mr-1" />
               <span>Too Long</span>
+            </button>
+          )}
+          {hasTimecodeConflicts && (
+             <button
+              onClick={() => setShowTimecodeConflictsOnly(!showTimecodeConflictsOnly)}
+              className={`flex items-center text-sm transition-colors ${showTimecodeConflictsOnly ? 'text-sky-400' : 'text-gray-300 hover:text-white'}`}
+              title={showTimecodeConflictsOnly ? 'Show All' : 'Show entries with overlapping timecodes'}
+            >
+              <ClockIcon className="h-5 w-5 mr-1" />
+              <span>Time Conflicts</span>
             </button>
           )}
           {hasOriginalText && (

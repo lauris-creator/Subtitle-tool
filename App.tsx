@@ -4,6 +4,7 @@ import { parseSrt, formatSrt } from './services/srtParser';
 import { sessionManager } from './services/sessionManager';
 import { splitTextIntelligently } from './utils/textUtils';
 import { splitTimeProportionally, calculateDuration } from './utils/timeUtils';
+import { hasTimecodeConflict, parseTimecodeInput } from './utils/timecodeUtils';
 import Header from './components/Header';
 import FileUpload from './components/FileUpload';
 import SubtitleEditor from './components/SubtitleEditor';
@@ -20,6 +21,7 @@ const App: React.FC = () => {
   const [showLongLinesOnly, setShowLongLinesOnly] = useState<boolean>(false);
   const [showTooShortOnly, setShowTooShortOnly] = useState<boolean>(false);
   const [showTooLongOnly, setShowTooLongOnly] = useState<boolean>(false);
+  const [showTimecodeConflictsOnly, setShowTimecodeConflictsOnly] = useState<boolean>(false);
   const [fileName, setFileName] = useState<string>('');
   const [sessionRestored, setSessionRestored] = useState<boolean>(false);
   const [maxTotalChars, setMaxTotalChars] = useState<number>(MAX_TOTAL_CHARS);
@@ -60,7 +62,7 @@ const App: React.FC = () => {
       recentlyEdited: false,
       editedAt: undefined
     })));
-  }, [showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly]); // Clear when filters change
+  }, [showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly]); // Clear when filters change
 
   const handleFileUpload = (content: string, type: 'original' | 'translated', name: string) => {
     const subs = parseSrt(content);
@@ -73,13 +75,15 @@ const App: React.FC = () => {
         const duration = calculateDuration(sub.startTime, sub.endTime);
         const isTooShort = duration < minDurationSeconds;
         const isTooLong = duration > maxDurationSeconds;
+        const hasConflict = hasTimecodeConflict(sub, subs);
         return {
           ...sub,
           charCount,
           isLong,
           duration,
           isTooShort,
-          isTooLong
+          isTooLong,
+          hasTimecodeConflict: hasConflict
         };
       });
       setTranslatedSubtitles(processedSubs);
@@ -112,17 +116,53 @@ const App: React.FC = () => {
         const duration = calculateDuration(sub.startTime, sub.endTime);
         const isTooShort = duration < minDurationSeconds;
         const isTooLong = duration > maxDurationSeconds;
+        const hasConflict = hasTimecodeConflict(sub, prev);
         return {
           ...sub,
           charCount,
           isLong,
           duration,
           isTooShort,
-          isTooLong
+          isTooLong,
+          hasTimecodeConflict: hasConflict
         };
       }));
     }
   }, [maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds, translatedSubtitles.length]);
+
+  const handleUpdateTimecode = useCallback((id: number, newStartTime: string, newEndTime: string) => {
+    setTranslatedSubtitles(prev => {
+      const now = Date.now();
+      return prev.map(sub => {
+        if (sub.id === id) {
+          const updatedSub = {
+            ...sub,
+            startTime: newStartTime,
+            endTime: newEndTime,
+            duration: calculateDuration(newStartTime, newEndTime),
+            isTooShort: calculateDuration(newStartTime, newEndTime) < minDurationSeconds,
+            isTooLong: calculateDuration(newStartTime, newEndTime) > maxDurationSeconds,
+            previousStartTime: sub.startTime,
+            previousEndTime: sub.endTime,
+            recentlyEdited: true,
+            editedAt: now,
+            canUndo: true
+          };
+          
+          // Check for conflicts with updated timecodes
+          const hasConflict = hasTimecodeConflict(updatedSub, prev.map(s => 
+            s.id === id ? updatedSub : s
+          ));
+          
+          return {
+            ...updatedSub,
+            hasTimecodeConflict: hasConflict
+          };
+        }
+        return sub;
+      });
+    });
+  }, [minDurationSeconds, maxDurationSeconds]);
 
   const handleUpdateSubtitle = useCallback((id: number, newText: string) => {
     setTranslatedSubtitles(prev => {
@@ -397,8 +437,11 @@ const App: React.FC = () => {
   const hasTooLongSegments = useMemo(() => 
     translatedSubtitles.some(sub => sub.isTooLong), [translatedSubtitles]);
 
+  const hasTimecodeConflicts = useMemo(() => 
+    translatedSubtitles.some(sub => sub.hasTimecodeConflict), [translatedSubtitles]);
+
   const filteredSubtitles = useMemo(() => {
-    const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly;
+    const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
 
     if (!hasActiveFilter) {
       return translatedSubtitles;
@@ -427,9 +470,12 @@ const App: React.FC = () => {
       if (showTooLongOnly) {
         return sub.isTooLong;
       }
+      if (showTimecodeConflictsOnly) {
+        return sub.hasTimecodeConflict;
+      }
       return false; 
     });
-  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, maxLineChars]);
+  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxLineChars]);
 
   const canUndo = previousSubtitles !== null;
 
@@ -556,7 +602,11 @@ const App: React.FC = () => {
             hasTooLongSegments={hasTooLongSegments}
             showTooLongOnly={showTooLongOnly}
             setShowTooLongOnly={setShowTooLongOnly}
+            hasTimecodeConflicts={hasTimecodeConflicts}
+            showTimecodeConflictsOnly={showTimecodeConflictsOnly}
+            setShowTimecodeConflictsOnly={setShowTimecodeConflictsOnly}
             onUpdateSubtitle={handleUpdateSubtitle}
+            onUpdateTimecode={handleUpdateTimecode}
             onUndoSubtitle={handleUndoSubtitle}
             onSplitSubtitle={handleSplitSubtitle}
             maxTotalChars={maxTotalChars}

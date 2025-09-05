@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Subtitle } from '../types';
 import { WarningIcon, UndoIcon, SplitIcon, ClockIcon } from './icons/Icons';
 import { calculateDuration, formatDuration } from '../utils/timeUtils';
 import { validateSplit } from '../utils/textUtils';
+import { parseTimecodeInput } from '../utils/timecodeUtils';
 
 interface SubtitleItemProps {
   subtitle: Subtitle;
   showOriginal: boolean;
   showTimecodes: boolean;
   onUpdateSubtitle: (id: number, newText: string) => void;
+  onUpdateTimecode: (id: number, newStartTime: string, newEndTime: string) => void;
   onUndoSubtitle: (id: number) => void;
   onSplitSubtitle: (id: number) => void;
   maxTotalChars: number;
@@ -22,6 +24,7 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
   showOriginal,
   showTimecodes,
   onUpdateSubtitle,
+  onUpdateTimecode,
   onUndoSubtitle,
   onSplitSubtitle,
   maxTotalChars,
@@ -30,9 +33,25 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
   maxDurationSeconds,
 }) => {
   const hasLongLine = subtitle.text.split('\n').some(line => line.length > maxLineChars);
+  const [isEditingTimecode, setIsEditingTimecode] = useState(false);
+  const [editStartTime, setEditStartTime] = useState(subtitle.startTime);
+  const [editEndTime, setEditEndTime] = useState(subtitle.endTime);
   
   // Calculate duration for this subtitle
   const duration = calculateDuration(subtitle.startTime, subtitle.endTime);
+
+  const handleTimecodeSave = () => {
+    const formattedStartTime = parseTimecodeInput(editStartTime);
+    const formattedEndTime = parseTimecodeInput(editEndTime);
+    onUpdateTimecode(subtitle.id, formattedStartTime, formattedEndTime);
+    setIsEditingTimecode(false);
+  };
+
+  const handleTimecodeCancel = () => {
+    setEditStartTime(subtitle.startTime);
+    setEditEndTime(subtitle.endTime);
+    setIsEditingTimecode(false);
+  };
   const canSplit = validateSplit(subtitle.text);
   const translatedLines = subtitle.text.split('\n');
   const lineCounts = translatedLines.map(line => line.length);
@@ -45,8 +64,59 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
       <div className="flex flex-col md:flex-row gap-4">
         {showTimecodes && (
           <div className="md:w-1/6 text-sm text-gray-400 font-mono flex-shrink-0">
-            <p>{subtitle.startTime}</p>
-            <p>{subtitle.endTime}</p>
+            {isEditingTimecode ? (
+              <div className="space-y-2">
+                <div>
+                  <input
+                    type="text"
+                    value={editStartTime}
+                    onChange={(e) => setEditStartTime(e.target.value)}
+                    className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                    placeholder="00:00:00,000"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    value={editEndTime}
+                    onChange={(e) => setEditEndTime(e.target.value)}
+                    className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                    placeholder="00:00:00,000"
+                  />
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={handleTimecodeSave}
+                    className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded transition-colors"
+                  >
+                    ✓
+                  </button>
+                  <button
+                    onClick={handleTimecodeCancel}
+                    className="px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded transition-colors"
+                  >
+                    ✗
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p 
+                  className="cursor-pointer hover:text-white transition-colors"
+                  onClick={() => setIsEditingTimecode(true)}
+                  title="Click to edit timecode"
+                >
+                  {subtitle.startTime}
+                </p>
+                <p 
+                  className="cursor-pointer hover:text-white transition-colors"
+                  onClick={() => setIsEditingTimecode(true)}
+                  title="Click to edit timecode"
+                >
+                  {subtitle.endTime}
+                </p>
+              </div>
+            )}
             <div className="mt-2 space-y-1">
               <p className="text-xs">ID: {subtitle.id}</p>
               <div className="flex items-center gap-1 text-blue-400">
@@ -101,6 +171,9 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
                 )}
                 {subtitle.isTooLong && (
                   <WarningIcon className="h-4 w-4 ml-2 text-purple-400" title={`Segment is over ${maxDurationSeconds} second${maxDurationSeconds !== 1 ? 's' : ''}.`} />
+                )}
+                {subtitle.hasTimecodeConflict && (
+                  <WarningIcon className="h-4 w-4 ml-2 text-yellow-400" title="Timecode overlaps with another segment." />
                 )}
               </div>
               <span className={`text-sm font-semibold ${subtitle.isLong ? 'text-red-400' : 'text-green-400'}`}>
