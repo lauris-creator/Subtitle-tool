@@ -443,6 +443,10 @@ const App: React.FC = () => {
         onUndo={handleUndo}
         canUndo={canUndo}
         onClearSession={handleClearSession}
+        maxTotalChars={maxTotalChars}
+        maxLineChars={maxLineChars}
+        minDurationSeconds={minDurationSeconds}
+        maxDurationSeconds={maxDurationSeconds}
       />
 
       <main className="flex-grow container mx-auto p-4 md:p-8">
@@ -534,52 +538,7 @@ const App: React.FC = () => {
             </div>
           </div>
         ) : (
-          <>
-            {/* Current Limit Settings Display */}
-            <div className="bg-gray-800 rounded-lg p-3 mb-4 max-w-2xl mx-auto">
-              <h3 className="text-sm font-semibold text-white mb-3 text-center">Current Validation Settings</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-700 rounded p-3">
-                  <h4 className="text-xs font-semibold text-gray-200 mb-2 flex items-center">
-                    <span className="w-1.5 h-1.5 bg-blue-400 rounded-full mr-1.5"></span>
-                    Characters
-                  </h4>
-                  <div className="space-y-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-300">Total:</span>
-                      <span className="text-xs font-semibold text-blue-400">{maxTotalChars}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-300">Per Line:</span>
-                      <span className="text-xs font-semibold text-blue-400">{maxLineChars}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gray-700 rounded p-3">
-                  <h4 className="text-xs font-semibold text-gray-200 mb-2 flex items-center">
-                    <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1.5"></span>
-                    Duration
-                  </h4>
-                  <div className="space-y-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-300">Min:</span>
-                      <span className="text-xs font-semibold text-green-400">{minDurationSeconds}s</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-300">Max:</span>
-                      <span className="text-xs font-semibold text-green-400">{maxDurationSeconds}s</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-2 text-center">
-                <p className="text-xs text-gray-500">
-                  💡 Change settings on upload page
-                </p>
-              </div>
-            </div>
-            
-            <SubtitleEditor 
+          <SubtitleEditor 
             subtitles={filteredSubtitles}
             showOriginal={showOriginal && originalSubtitles.length > 0}
             setShowOriginal={setShowOriginal}
@@ -605,7 +564,6 @@ const App: React.FC = () => {
             minDurationSeconds={minDurationSeconds}
             maxDurationSeconds={maxDurationSeconds}
           />
-          </>
         )}
       </main>
     </div>
