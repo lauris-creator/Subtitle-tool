@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Subtitle } from '../types';
 import { WarningIcon, UndoIcon, SplitIcon, ClockIcon } from './icons/Icons';
 import { calculateDuration, formatDuration } from '../utils/timeUtils';
@@ -36,15 +36,29 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
   const [isEditingTimecode, setIsEditingTimecode] = useState(false);
   const [editStartTime, setEditStartTime] = useState(subtitle.startTime);
   const [editEndTime, setEditEndTime] = useState(subtitle.endTime);
+  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
   
   // Calculate duration for this subtitle
   const duration = calculateDuration(subtitle.startTime, subtitle.endTime);
+  
+  // Update edit state when subtitle changes (e.g., after save)
+  useEffect(() => {
+    if (!isEditingTimecode) {
+      setEditStartTime(subtitle.startTime);
+      setEditEndTime(subtitle.endTime);
+    }
+  }, [subtitle.startTime, subtitle.endTime, isEditingTimecode]);
 
   const handleTimecodeSave = () => {
     const formattedStartTime = parseTimecodeInput(editStartTime);
     const formattedEndTime = parseTimecodeInput(editEndTime);
+    
     onUpdateTimecode(subtitle.id, formattedStartTime, formattedEndTime);
     setIsEditingTimecode(false);
+    
+    // Show brief confirmation
+    setShowSaveConfirmation(true);
+    setTimeout(() => setShowSaveConfirmation(false), 2000);
   };
 
   const handleTimecodeCancel = () => {
@@ -123,6 +137,11 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
                 <ClockIcon className="h-3 w-3" />
                 <span className="text-xs">{formatDuration(duration)}</span>
               </div>
+              {showSaveConfirmation && (
+                <div className="text-xs text-green-400 bg-green-900/30 px-2 py-1 rounded">
+                  ✓ Saved
+                </div>
+              )}
               {canSplit && (
                 <button
                   onClick={() => onSplitSubtitle(subtitle.id)}

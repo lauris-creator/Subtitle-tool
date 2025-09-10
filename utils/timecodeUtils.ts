@@ -62,6 +62,11 @@ export function isValidTimecode(timecode: string): boolean {
  * Parse timecode input and return formatted timecode
  */
 export function parseTimecodeInput(input: string): string {
+  // If already in correct format, return as-is
+  if (isValidTimecode(input)) {
+    return input;
+  }
+  
   // Remove any non-digit characters except colons and commas
   const cleaned = input.replace(/[^\d:,]/g, '');
   
