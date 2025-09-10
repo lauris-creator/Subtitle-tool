@@ -28,6 +28,8 @@ interface SubtitleEditorProps {
   onRemoveBreaksFromFiltered: () => void;
   hasLongLinesInFiltered: boolean;
   onSplitFilteredLines: () => void;
+  hasSplittableInFiltered: boolean;
+  onBulkSplitFiltered: () => void;
   onShowAll: () => void;
   onUpdateSubtitle: (id: number, newText: string) => void;
   onUpdateTimecode: (id: number, newStartTime: string, newEndTime: string) => void;
@@ -65,6 +67,8 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     onRemoveBreaksFromFiltered,
     hasLongLinesInFiltered,
     onSplitFilteredLines,
+    hasSplittableInFiltered,
+    onBulkSplitFiltered,
     onShowAll,
     maxTotalChars,
     maxLineChars,
@@ -154,8 +158,18 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
               className="flex items-center text-sm transition-colors text-gray-300 hover:text-white"
               title="Split long lines in all visible subtitles"
             >
+              <span className="mr-1">¶</span>
+              <span>Paragraph Lines</span>
+            </button>
+          )}
+          {hasSplittableInFiltered && (
+             <button
+              onClick={onBulkSplitFiltered}
+              className="flex items-center text-sm transition-colors text-gray-300 hover:text-white"
+              title="Split all visible subtitles into two parts with proportional timecodes"
+            >
               <span className="mr-1">✂️</span>
-              <span>Split Filtered Lines</span>
+              <span>Bulk Split Filtered</span>
             </button>
           )}
           {hasOriginalText && (
