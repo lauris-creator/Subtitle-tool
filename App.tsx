@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Subtitle } from './types';
 import { parseSrt, formatSrt } from './services/srtParser';
 import { sessionManager } from './services/sessionManager';
-import { splitTextIntelligently } from './utils/textUtils';
+import { splitTextIntelligently, splitLineIntelligently } from './utils/textUtils';
 import { splitTimeProportionally, calculateDuration } from './utils/timeUtils';
 import { hasTimecodeConflict, parseTimecodeInput } from './utils/timecodeUtils';
 import Header from './components/Header';
@@ -246,21 +246,7 @@ const App: React.FC = () => {
             return sub;
           }
 
-          const newLines = lines.flatMap(line => {
-            if (line.length <= maxLineChars) {
-              return [line];
-            }
-            
-            let breakPoint = line.substring(0, maxLineChars + 1).lastIndexOf(' ');
-            if (breakPoint <= 0) { // No space found or at the beginning
-              breakPoint = maxLineChars;
-            }
-
-            const line1 = line.substring(0, breakPoint).trim();
-            const line2 = line.substring(breakPoint).trim();
-            
-            return [line1, line2].filter(l => l);
-          });
+          const newLines = lines.flatMap(line => splitLineIntelligently(line, maxLineChars));
 
           const newText = newLines.join('\n');
           const newCharCount = newText.replace(/\n/g, '').length;

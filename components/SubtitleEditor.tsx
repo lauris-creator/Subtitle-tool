@@ -165,7 +165,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
           {hasSplittableInFiltered && (
              <button
               onClick={onBulkSplitFiltered}
-              className="flex items-center text-sm transition-colors text-gray-300 hover:text-white"
+              className="flex items-center text-sm transition-colors text-orange-400 hover:text-orange-300"
               title="Split all visible subtitles into two parts with proportional timecodes"
             >
               <span className="mr-1">✂️</span>
