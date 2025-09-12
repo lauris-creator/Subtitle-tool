@@ -190,7 +190,9 @@ const App: React.FC = () => {
   const handleDownload = () => {
     if (translatedSubtitles.length === 0) return;
     const srtContent = formatSrt(translatedSubtitles);
-    const blob = new Blob([srtContent], { type: 'text/plain;charset=utf-8' });
+    // Add UTF-8 BOM for better compatibility with subtitle players
+    const contentWithBOM = '\uFEFF' + srtContent;
+    const blob = new Blob([contentWithBOM], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
