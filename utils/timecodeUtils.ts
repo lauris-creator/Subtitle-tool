@@ -23,7 +23,7 @@ export function secondsToTimecode(seconds: number): string {
 }
 
 /**
- * Check if two timecode ranges overlap
+ * Check if two timecode ranges overlap or are consecutive (no gap)
  */
 export function timecodesOverlap(
   start1: string, 
@@ -37,7 +37,12 @@ export function timecodesOverlap(
   const end2Sec = timecodeToSeconds(end2);
   
   // Two ranges overlap if one starts before the other ends
-  return start1Sec < end2Sec && start2Sec < end1Sec;
+  const hasOverlap = start1Sec < end2Sec && start2Sec < end1Sec;
+  
+  // Also consider consecutive timecodes as conflicts (no gap between subtitles)
+  const isConsecutive = (end1Sec === start2Sec) || (end2Sec === start1Sec);
+  
+  return hasOverlap || isConsecutive;
 }
 
 /**
