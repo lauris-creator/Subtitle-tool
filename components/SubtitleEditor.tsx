@@ -30,6 +30,8 @@ interface SubtitleEditorProps {
   onSplitFilteredLines: () => void;
   hasSplittableInFiltered: boolean;
   onBulkSplitFiltered: () => void;
+  hasTimecodeConflictsInFiltered: boolean;
+  onFixTimecodeConflicts: () => void;
   onShowAll: () => void;
   onUpdateSubtitle: (id: number, newText: string) => void;
   onUpdateTimecode: (id: number, newStartTime: string, newEndTime: string) => void;
@@ -69,6 +71,8 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     onSplitFilteredLines,
     hasSplittableInFiltered,
     onBulkSplitFiltered,
+    hasTimecodeConflictsInFiltered,
+    onFixTimecodeConflicts,
     onShowAll,
     maxTotalChars,
     maxLineChars,
@@ -170,6 +174,16 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             >
               <span className="mr-1">✂️</span>
               <span>Bulk Split Filtered</span>
+            </button>
+          )}
+          {hasTimecodeConflictsInFiltered && (
+             <button
+              onClick={onFixTimecodeConflicts}
+              className="flex items-center text-sm transition-colors text-red-400 hover:text-red-300"
+              title="Fix timecode conflicts by reducing end times by 1ms"
+            >
+              <span className="mr-1">🔧</span>
+              <span>Fix Conflicts</span>
             </button>
           )}
           {hasOriginalText && (

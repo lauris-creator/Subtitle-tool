@@ -64,6 +64,15 @@ export function isValidTimecode(timecode: string): boolean {
 }
 
 /**
+ * Reduce timecode by 1 millisecond
+ */
+export function reduceTimecodeByOneMs(timecode: string): string {
+  const seconds = timecodeToSeconds(timecode);
+  const reducedSeconds = Math.max(0, seconds - 0.001); // Reduce by 1ms, but don't go below 0
+  return secondsToTimecode(reducedSeconds);
+}
+
+/**
  * Parse timecode input and return formatted timecode
  */
 export function parseTimecodeInput(input: string): string {

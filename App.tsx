@@ -4,7 +4,7 @@ import { parseSrt, formatSrt } from './services/srtParser';
 import { sessionManager } from './services/sessionManager';
 import { splitTextIntelligently, splitLineIntelligently } from './utils/textUtils';
 import { splitTimeProportionally, calculateDuration } from './utils/timeUtils';
-import { hasTimecodeConflict, parseTimecodeInput } from './utils/timecodeUtils';
+import { hasTimecodeConflict, parseTimecodeInput, reduceTimecodeByOneMs } from './utils/timecodeUtils';
 import Header from './components/Header';
 import FileUpload from './components/FileUpload';
 import SubtitleEditor from './components/SubtitleEditor';
@@ -769,6 +769,94 @@ const App: React.FC = () => {
     // Clear global undo since structure changed
     setPreviousSubtitles(null);
   }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
+
+  const handleFixTimecodeConflicts = useCallback(() => {
+    setPreviousSubtitles(translatedSubtitles); // Save state for undo
+    setTranslatedSubtitles(prev => {
+      // Calculate current filtered subtitles based on current filter states
+      const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
+      
+      let currentFilteredSubtitles = prev;
+      if (hasActiveFilter) {
+        currentFilteredSubtitles = prev.filter(sub => {
+          const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
+          
+          if (showErrorsOnly && showLongLinesOnly) {
+            return sub.isLong || lineLengthExceeded;
+          }
+          if (showErrorsOnly) {
+            return sub.isLong;
+          }
+          if (showLongLinesOnly) {
+            return lineLengthExceeded;
+          }
+          if (showTooShortOnly) {
+            return sub.isTooShort;
+          }
+          if (showTooLongOnly) {
+            return sub.isTooLong;
+          }
+          if (showTimecodeConflictsOnly) {
+            return sub.hasTimecodeConflict;
+          }
+          return false; 
+        });
+      }
+      
+      // Find all subtitles with timecode conflicts in the filtered view
+      const conflictingSubtitles = currentFilteredSubtitles.filter(sub => sub.hasTimecodeConflict);
+      
+      if (conflictingSubtitles.length === 0) {
+        console.log('❌ No timecode conflicts found in filtered view');
+        return prev;
+      }
+      
+      console.log(`🔧 Fixing timecode conflicts for ${conflictingSubtitles.length} filtered subtitles`);
+      
+      // Process each conflicting subtitle
+      let newSubtitles = [...prev];
+      
+      // Sort by ID to process in order
+      const sortedConflictingIds = conflictingSubtitles.map(sub => sub.id).sort((a, b) => a - b);
+      
+      for (const subtitleId of sortedConflictingIds) {
+        const subtitleIndex = newSubtitles.findIndex(sub => sub.id === subtitleId);
+        if (subtitleIndex === -1) continue;
+        
+        const subtitle = newSubtitles[subtitleIndex];
+        
+        // Reduce end time by 1ms
+        const newEndTime = reduceTimecodeByOneMs(subtitle.endTime);
+        
+        // Update the subtitle
+        newSubtitles[subtitleIndex] = {
+          ...subtitle,
+          endTime: newEndTime,
+          duration: calculateDuration(subtitle.startTime, newEndTime),
+          isTooShort: calculateDuration(subtitle.startTime, newEndTime) < minDurationSeconds,
+          isTooLong: calculateDuration(subtitle.startTime, newEndTime) > maxDurationSeconds,
+          recentlyEdited: true,
+          editedAt: Date.now(),
+          canUndo: true,
+          previousText: subtitle.text
+        };
+      }
+      
+      // Recalculate conflicts after changes
+      const finalSubtitles = newSubtitles.map(sub => {
+        const hasConflict = hasTimecodeConflict(sub, newSubtitles);
+        return {
+          ...sub,
+          hasTimecodeConflict: hasConflict
+        };
+      });
+      
+      console.log(`📋 Timecode conflicts fixed - reduced end times by 1ms for ${conflictingSubtitles.length} subtitles`);
+      console.log(`📋 Fixed segments marked as 'recently edited' - will remain visible in current filter until manually changed`);
+      
+      return finalSubtitles;
+    });
+  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
   
   const hasTotalLengthErrors = useMemo(() => translatedSubtitles.some(sub => sub.isLong), [translatedSubtitles]);
   
@@ -844,6 +932,9 @@ const App: React.FC = () => {
       const words = sub.text.replace(/\n/g, ' ').trim().split(' ');
       return words.length >= 2 && sub.text.trim().length > 10;
     }), [filteredSubtitles]);
+
+  const hasTimecodeConflictsInFiltered = useMemo(() => 
+    filteredSubtitles.some(sub => sub.hasTimecodeConflict), [filteredSubtitles]);
 
   const canUndo = previousSubtitles !== null;
 
@@ -977,6 +1068,8 @@ const App: React.FC = () => {
             onSplitFilteredLines={handleSplitFilteredLines}
             hasSplittableInFiltered={hasSplittableInFiltered}
             onBulkSplitFiltered={handleBulkSplitFiltered}
+            hasTimecodeConflictsInFiltered={hasTimecodeConflictsInFiltered}
+            onFixTimecodeConflicts={handleFixTimecodeConflicts}
             onShowAll={handleShowAll}
             onUpdateSubtitle={handleUpdateSubtitle}
             onUpdateTimecode={handleUpdateTimecode}
