@@ -18,3 +18,20 @@ export interface Subtitle {
   previousEndTime?: string; // For timecode undo
   canUndo?: boolean;
 }
+
+export interface Document {
+  id: string;
+  name: string;
+  translatedSubtitles: Subtitle[];
+  originalSubtitles: Subtitle[];
+  lastModified: number;
+}
+
+export interface SessionData {
+  documents: Document[];
+  currentDocumentId: string | null;
+  maxTotalChars: number;
+  maxLineChars: number;
+  minDurationSeconds: number;
+  maxDurationSeconds: number;
+}

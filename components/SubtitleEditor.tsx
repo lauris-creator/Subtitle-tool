@@ -30,6 +30,8 @@ interface SubtitleEditorProps {
   onSplitFilteredLines: () => void;
   hasSplittableInFiltered: boolean;
   onBulkSplitFiltered: () => void;
+  hasTimecodeConflictsInFiltered: boolean;
+  onFixTimecodeConflicts: () => void;
   onShowAll: () => void;
   onUpdateSubtitle: (id: number, newText: string) => void;
   onUpdateTimecode: (id: number, newStartTime: string, newEndTime: string) => void;
@@ -70,6 +72,8 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     onSplitFilteredLines,
     hasSplittableInFiltered,
     onBulkSplitFiltered,
+    hasTimecodeConflictsInFiltered,
+    onFixTimecodeConflicts,
     onMergeNext,
     onShowAll,
     maxTotalChars,

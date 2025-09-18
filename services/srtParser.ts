@@ -1,6 +1,8 @@
 
 import { Subtitle } from '../types';
 import { MAX_TOTAL_CHARS } from '../constants';
+import { calculateDuration } from '../utils/timeUtils';
+import { hasTimecodeConflict } from '../utils/timecodeUtils';
 
 export const parseSrt = (srtContent: string): Subtitle[] => {
   const subtitles: Subtitle[] = [];
@@ -25,15 +27,29 @@ export const parseSrt = (srtContent: string): Subtitle[] => {
 
     const charCount = text.replace(/\n/g, '').length;
     const isLong = charCount > MAX_TOTAL_CHARS;
+    const duration = calculateDuration(startTime, endTime);
+    const isTooShort = duration < 1; // Default minimum duration
+    const isTooLong = duration > 7; // Default maximum duration
 
-    subtitles.push({
+    const subtitle: Subtitle = {
       id,
       startTime,
       endTime,
       text,
       charCount,
       isLong,
-    });
+      duration,
+      isTooShort,
+      isTooLong,
+      hasTimecodeConflict: false // Will be calculated later when all subtitles are available
+    };
+
+    subtitles.push(subtitle);
+  });
+
+  // Calculate conflicts after all subtitles are created
+  subtitles.forEach(subtitle => {
+    subtitle.hasTimecodeConflict = hasTimecodeConflict(subtitle, subtitles);
   });
 
   return subtitles;

@@ -4,7 +4,9 @@ import Logo from './Logo';
 
 interface HeaderProps {
   onDownload: () => void;
+  onDownloadAll: () => void;
   hasTranslatedSubs: boolean;
+  hasMultipleDocuments: boolean;
   onUndo: () => void;
   canUndo: boolean;
   onClearSession: () => void;
@@ -16,7 +18,9 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ 
   onDownload, 
+  onDownloadAll,
   hasTranslatedSubs, 
+  hasMultipleDocuments,
   onUndo, 
   canUndo, 
   onClearSession,
@@ -110,13 +114,26 @@ const Header: React.FC<HeaderProps> = ({
               </button>
             )}
             {hasTranslatedSubs && (
-              <button
-                onClick={onDownload}
-                className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors"
-              >
-                <DownloadIcon className="h-5 w-5 mr-2" />
-                Download Edited SRT
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={onDownload}
+                  className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors"
+                  title="Download current document"
+                >
+                  <DownloadIcon className="h-5 w-5 mr-2" />
+                  Download Current
+                </button>
+                {hasMultipleDocuments && (
+                  <button
+                    onClick={onDownloadAll}
+                    className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                    title="Download all documents as ZIP"
+                  >
+                    <DownloadIcon className="h-5 w-5 mr-2" />
+                    Download All
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>

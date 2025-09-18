@@ -1,19 +1,21 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Subtitle } from './types';
+import { Document, SessionData, Subtitle } from './types';
 import { parseSrt, formatSrt } from './services/srtParser';
 import { sessionManager } from './services/sessionManager';
 import { splitTextIntelligently, splitLineIntelligently } from './utils/textUtils';
 import { splitTimeProportionally, calculateDuration } from './utils/timeUtils';
-import { hasTimecodeConflict, parseTimecodeInput } from './utils/timecodeUtils';
+import { hasTimecodeConflict, parseTimecodeInput, reduceTimecodeByOneMs } from './utils/timecodeUtils';
 import Header from './components/Header';
 import FileUpload from './components/FileUpload';
 import SubtitleEditor from './components/SubtitleEditor';
+import DocumentSelector from './components/DocumentSelector';
 import Logo from './components/Logo';
 import { MAX_LINE_CHARS, MAX_TOTAL_CHARS } from './constants';
+import JSZip from 'jszip';
 
 const App: React.FC = () => {
-  const [originalSubtitles, setOriginalSubtitles] = useState<Subtitle[]>([]);
-  const [translatedSubtitles, setTranslatedSubtitles] = useState<Subtitle[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [currentDocumentId, setCurrentDocumentId] = useState<string | null>(null);
   const [previousSubtitles, setPreviousSubtitles] = useState<Subtitle[] | null>(null); // For undo
   const [showOriginal, setShowOriginal] = useState<boolean>(true);
   const [showTimecodes, setShowTimecodes] = useState<boolean>(true);
@@ -22,20 +24,39 @@ const App: React.FC = () => {
   const [showTooShortOnly, setShowTooShortOnly] = useState<boolean>(false);
   const [showTooLongOnly, setShowTooLongOnly] = useState<boolean>(false);
   const [showTimecodeConflictsOnly, setShowTimecodeConflictsOnly] = useState<boolean>(false);
-  const [fileName, setFileName] = useState<string>('');
   const [sessionRestored, setSessionRestored] = useState<boolean>(false);
   const [maxTotalChars, setMaxTotalChars] = useState<number>(MAX_TOTAL_CHARS);
   const [maxLineChars, setMaxLineChars] = useState<number>(MAX_LINE_CHARS);
   const [minDurationSeconds, setMinDurationSeconds] = useState<number>(1);
   const [maxDurationSeconds, setMaxDurationSeconds] = useState<number>(7);
 
+  // Get current document
+  const currentDocument = useMemo(() => 
+    documents.find(doc => doc.id === currentDocumentId) || null, 
+    [documents, currentDocumentId]
+  );
+
+  // Get current subtitles
+  const translatedSubtitles = useMemo(() => 
+    currentDocument?.translatedSubtitles || [], 
+    [currentDocument]
+  );
+
+  const originalSubtitles = useMemo(() => 
+    currentDocument?.originalSubtitles || [], 
+    [currentDocument]
+  );
+
   // Restore session on component mount
   useEffect(() => {
     const savedSession = sessionManager.loadSession();
     if (savedSession) {
-      setOriginalSubtitles(savedSession.originalSubtitles);
-      setTranslatedSubtitles(savedSession.translatedSubtitles);
-      setFileName(savedSession.fileName);
+      setDocuments(savedSession.documents);
+      setCurrentDocumentId(savedSession.currentDocumentId);
+      setMaxTotalChars(savedSession.maxTotalChars);
+      setMaxLineChars(savedSession.maxLineChars);
+      setMinDurationSeconds(savedSession.minDurationSeconds);
+      setMaxDurationSeconds(savedSession.maxDurationSeconds);
       setSessionRestored(true);
       
       const sessionAge = sessionManager.getSessionAge();
@@ -43,97 +64,144 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Auto-save session when subtitles change
+  // Auto-save session when documents change
   useEffect(() => {
-    if (sessionRestored || translatedSubtitles.length > 0) {
-      sessionManager.saveSession({
-        originalSubtitles,
-        translatedSubtitles,
-        fileName
-      });
+    if (sessionRestored || documents.length > 0) {
+      const sessionData: SessionData = {
+        documents,
+        currentDocumentId,
+        maxTotalChars,
+        maxLineChars,
+        minDurationSeconds,
+        maxDurationSeconds
+      };
+      sessionManager.saveSession(sessionData);
     }
-  }, [originalSubtitles, translatedSubtitles, fileName, sessionRestored]);
+  }, [documents, currentDocumentId, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds, sessionRestored]);
 
-  // Clear "recently edited" status when filters change (not after timeout)
+  // Clear "recently edited" status when filters change
   useEffect(() => {
-    // Clear recently edited when user changes filters
-    setTranslatedSubtitles(prev => prev.map(sub => ({
-      ...sub,
-      recentlyEdited: false,
-      editedAt: undefined
-    })));
-  }, [showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly]); // Clear when filters change
-
-  const handleFileUpload = (content: string, type: 'original' | 'translated', name: string) => {
-    const subs = parseSrt(content);
-    setPreviousSubtitles(null); // Clear undo history on new file upload
-    if (type === 'translated') {
-      // Apply current character limits and duration validation to parsed subtitles
-      const processedSubs = subs.map(sub => {
-        const charCount = sub.text.replace(/\n/g, '').length;
-        const isLong = charCount > maxTotalChars;
-        const duration = calculateDuration(sub.startTime, sub.endTime);
-        const isTooShort = duration < minDurationSeconds;
-        const isTooLong = duration > maxDurationSeconds;
-        const hasConflict = hasTimecodeConflict(sub, subs);
-        return {
-          ...sub,
-          charCount,
-          isLong,
-          duration,
-          isTooShort,
-          isTooLong,
-          hasTimecodeConflict: hasConflict
-        };
-      });
-      setTranslatedSubtitles(processedSubs);
-      setFileName(name);
-      // If original is already loaded, merge them
-      if (originalSubtitles.length > 0) {
-        setTranslatedSubtitles(prevSubs => prevSubs.map((sub, index) => ({
-          ...sub,
-          originalText: originalSubtitles[index]?.text || '',
-        })));
-      }
-    } else {
-      setOriginalSubtitles(subs);
-      // If translated is already loaded, merge them
-      if (translatedSubtitles.length > 0) {
-        setTranslatedSubtitles(prevSubs => prevSubs.map((sub, index) => ({
-          ...sub,
-          originalText: subs[index]?.text || '',
-        })));
-      }
+    if (currentDocument) {
+      setDocuments(prev => prev.map(doc => 
+        doc.id === currentDocumentId 
+          ? {
+              ...doc,
+              translatedSubtitles: doc.translatedSubtitles.map(sub => ({
+                ...sub,
+                recentlyEdited: false,
+                editedAt: undefined
+              }))
+            }
+          : doc
+      ));
     }
-  };
+  }, [showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, currentDocumentId]);
 
   // Recalculate subtitle validation when limits change
   useEffect(() => {
-    if (translatedSubtitles.length > 0) {
-      setTranslatedSubtitles(prev => prev.map(sub => {
-        const charCount = sub.text.replace(/\n/g, '').length;
-        const isLong = charCount > maxTotalChars;
-        const duration = calculateDuration(sub.startTime, sub.endTime);
-        const isTooShort = duration < minDurationSeconds;
-        const isTooLong = duration > maxDurationSeconds;
-        const hasConflict = hasTimecodeConflict(sub, prev);
-        return {
-          ...sub,
-          charCount,
-          isLong,
-          duration,
-          isTooShort,
-          isTooLong,
-          hasTimecodeConflict: hasConflict
-        };
-      }));
+    if (currentDocument) {
+      setDocuments(prev => prev.map(doc => 
+        doc.id === currentDocumentId 
+          ? {
+              ...doc,
+              translatedSubtitles: doc.translatedSubtitles.map(sub => {
+                const charCount = sub.text.replace(/\n/g, '').length;
+                const isLong = charCount > maxTotalChars;
+                const duration = calculateDuration(sub.startTime, sub.endTime);
+                const isTooShort = duration < minDurationSeconds;
+                const isTooLong = duration > maxDurationSeconds;
+                const hasConflict = hasTimecodeConflict(sub, doc.translatedSubtitles);
+                return {
+                  ...sub,
+                  charCount,
+                  isLong,
+                  duration,
+                  isTooShort,
+                  isTooLong,
+                  hasTimecodeConflict: hasConflict
+                };
+              })
+            }
+          : doc
+      ));
     }
-  }, [maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds, translatedSubtitles.length]);
+  }, [maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds, currentDocumentId]);
+
+  const generateDocumentId = () => {
+    return `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
+
+  const handleFileUpload = (content: string, type: 'original' | 'translated', name: string) => {
+    const subs = parseSrt(content);
+    const documentId = generateDocumentId();
+    
+    // Apply current character limits and duration validation to parsed subtitles
+    const processedSubs = subs.map(sub => {
+      const charCount = sub.text.replace(/\n/g, '').length;
+      const isLong = charCount > maxTotalChars;
+      const duration = calculateDuration(sub.startTime, sub.endTime);
+      const isTooShort = duration < minDurationSeconds;
+      const isTooLong = duration > maxDurationSeconds;
+      const hasConflict = hasTimecodeConflict(sub, subs);
+      return {
+        ...sub,
+        charCount,
+        isLong,
+        duration,
+        isTooShort,
+        isTooLong,
+        hasTimecodeConflict: hasConflict
+      };
+    });
+
+    const newDocument: Document = {
+      id: documentId,
+      name: name,
+      translatedSubtitles: type === 'translated' ? processedSubs : [],
+      originalSubtitles: type === 'original' ? processedSubs : [],
+      lastModified: Date.now()
+    };
+
+    setDocuments(prev => [...prev, newDocument]);
+    setCurrentDocumentId(documentId);
+    setPreviousSubtitles(null); // Clear undo history on new file upload
+  };
+
+  const handleSelectDocument = (documentId: string) => {
+    setCurrentDocumentId(documentId);
+    setPreviousSubtitles(null); // Clear undo when switching documents
+  };
+
+  const handleCloseDocument = (documentId: string) => {
+    setDocuments(prev => {
+      const newDocs = prev.filter(doc => doc.id !== documentId);
+      if (currentDocumentId === documentId) {
+        setCurrentDocumentId(newDocs.length > 0 ? newDocs[0].id : null);
+      }
+      return newDocs;
+    });
+  };
+
+  const handleNewDocument = () => {
+    // This will be handled by the file upload component
+  };
+
+  const updateCurrentDocument = (updater: (doc: Document) => Document) => {
+    if (!currentDocument) return;
+    
+    setDocuments(prev => prev.map(doc => 
+      doc.id === currentDocumentId 
+        ? { ...updater(doc), lastModified: Date.now() }
+        : doc
+    ));
+  };
 
   const handleUpdateTimecode = useCallback((id: number, newStartTime: string, newEndTime: string) => {
-    setTranslatedSubtitles(prev => {
-      const now = Date.now();
-      return prev.map(sub => {
+    if (!currentDocument) return;
+
+    updateCurrentDocument(doc => ({
+      ...doc,
+      translatedSubtitles: doc.translatedSubtitles.map(sub => {
         if (sub.id === id) {
           const updatedSub = {
             ...sub,
@@ -145,12 +213,12 @@ const App: React.FC = () => {
             previousStartTime: sub.startTime,
             previousEndTime: sub.endTime,
             recentlyEdited: true,
-            editedAt: now,
+            editedAt: Date.now(),
             canUndo: true
           };
           
           // Check for conflicts with updated timecodes
-          const hasConflict = hasTimecodeConflict(updatedSub, prev.map(s => 
+          const hasConflict = hasTimecodeConflict(updatedSub, doc.translatedSubtitles.map(s => 
             s.id === id ? updatedSub : s
           ));
           
@@ -160,133 +228,67 @@ const App: React.FC = () => {
           };
         }
         return sub;
-      });
-    });
-  }, [minDurationSeconds, maxDurationSeconds]);
+      })
+    }));
+  }, [currentDocument, minDurationSeconds, maxDurationSeconds]);
 
   const handleUpdateSubtitle = useCallback((id: number, newText: string) => {
-    setTranslatedSubtitles(prev => {
-        const line = newText.replace(/<br\s*\/?>/gi, '\n');
-        const charCount = line.replace(/\n/g, '').length;
-        const isLong = charCount > maxTotalChars;
-        const now = Date.now();
-        return prev.map(sub => sub.id === id ? { 
-          ...sub, 
-          previousText: sub.text, // Store previous text for undo
-          text: line, 
-          charCount, 
-          isLong,
-          duration: calculateDuration(sub.startTime, sub.endTime),
-          isTooShort: calculateDuration(sub.startTime, sub.endTime) < minDurationSeconds,
-          isTooLong: calculateDuration(sub.startTime, sub.endTime) > maxDurationSeconds,
-          recentlyEdited: true,
-          editedAt: now,
-          canUndo: true
-        } : sub)
-    });
-    setPreviousSubtitles(null); // Manual edit clears global undo
-  }, [maxTotalChars, minDurationSeconds, maxDurationSeconds]);
+    if (!currentDocument) return;
 
-  const handleMergeSubtitleWithNext = useCallback((id: number) => {
-    setTranslatedSubtitles(prev => {
-      const index = prev.findIndex(s => s.id === id);
-      if (index === -1 || index === prev.length - 1) return prev; // nothing to merge
-
-      const current = prev[index];
-      const next = prev[index + 1];
-
-      const mergedText = `${current.text} ${next.text}`.replace(/\s+/g, ' ').replace(/\s*\n\s*/g, ' ').trim();
-      const mergedStart = current.startTime;
-      const mergedEnd = next.endTime;
-
-      const charCount = mergedText.replace(/\n/g, '').length;
-      const duration = calculateDuration(mergedStart, mergedEnd);
-
-      const merged: Subtitle = {
-        ...current,
-        text: mergedText,
-        startTime: mergedStart,
-        endTime: mergedEnd,
-        charCount,
-        isLong: charCount > maxTotalChars,
-        duration,
-        isTooShort: duration < minDurationSeconds,
-        isTooLong: duration > maxDurationSeconds,
+    updateCurrentDocument(doc => ({
+      ...doc,
+      translatedSubtitles: doc.translatedSubtitles.map(sub => sub.id === id ? { 
+        ...sub, 
+        previousText: sub.text, // Store previous text for undo
+        text: newText.replace(/<br\s*\/?>/gi, '\n'), 
+        charCount: newText.replace(/\n/g, '').length, 
+        isLong: newText.replace(/\n/g, '').length > maxTotalChars,
+        duration: calculateDuration(sub.startTime, sub.endTime),
+        isTooShort: calculateDuration(sub.startTime, sub.endTime) < minDurationSeconds,
+        isTooLong: calculateDuration(sub.startTime, sub.endTime) > maxDurationSeconds,
         recentlyEdited: true,
         editedAt: Date.now(),
-        canUndo: false,
-        previousText: undefined
-      };
-
-      // Build new subtitles: replace current with merged, remove next
-      const newSubtitles = [
-        ...prev.slice(0, index),
-        merged,
-        ...prev.slice(index + 2)
-      ].map((sub, i) => ({ ...sub, id: i + 1 }));
-
-      // Recompute conflicts
-      const recomputed = newSubtitles.map(s => ({
-        ...s,
-        hasTimecodeConflict: hasTimecodeConflict(s, newSubtitles)
-      }));
-
-      return recomputed;
-    });
-
-    // Merge originals if present
-    setOriginalSubtitles(prev => {
-      if (!prev || prev.length === 0) return prev;
-      const index = prev.findIndex(s => s.id === id);
-      if (index === -1 || index === prev.length - 1) return prev;
-
-      const current = prev[index];
-      const next = prev[index + 1];
-
-      const mergedText = `${current.text} ${next.text}`.replace(/\s+/g, ' ').replace(/\s*\n\s*/g, ' ').trim();
-      const mergedStart = current.startTime;
-      const mergedEnd = next.endTime;
-
-      const charCount = mergedText.replace(/\n/g, '').length;
-      const duration = calculateDuration(mergedStart, mergedEnd);
-
-      const merged: Subtitle = {
-        ...current,
-        text: mergedText,
-        startTime: mergedStart,
-        endTime: mergedEnd,
-        charCount,
-        isLong: charCount > maxTotalChars,
-        duration,
-        isTooShort: duration < minDurationSeconds,
-        isTooLong: duration > maxDurationSeconds,
-        recentlyEdited: true,
-        editedAt: Date.now()
-      };
-
-      const newSubtitles = [
-        ...prev.slice(0, index),
-        merged,
-        ...prev.slice(index + 2)
-      ].map((sub, i) => ({ ...sub, id: i + 1 }));
-
-      return newSubtitles;
-    });
-
-    // Structure changed, clear global undo
-    setPreviousSubtitles(null);
-  }, [maxTotalChars, minDurationSeconds, maxDurationSeconds]);
+        canUndo: true
+      } : sub)
+    }));
+    setPreviousSubtitles(null); // Manual edit clears global undo
+  }, [currentDocument, maxTotalChars, minDurationSeconds, maxDurationSeconds]);
 
   const handleDownload = () => {
-    if (translatedSubtitles.length === 0) return;
-    const srtContent = formatSrt(translatedSubtitles);
+    if (!currentDocument || currentDocument.translatedSubtitles.length === 0) return;
+    
+    const srtContent = formatSrt(currentDocument.translatedSubtitles);
     // Add UTF-8 BOM for better compatibility with subtitle players
     const contentWithBOM = '\uFEFF' + srtContent;
     const blob = new Blob([contentWithBOM], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `edited_${fileName || 'subtitles.srt'}`;
+    a.download = `edited_${currentDocument.name}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadAll = async () => {
+    if (documents.length === 0) return;
+
+    const zip = new JSZip();
+    
+    documents.forEach(doc => {
+      if (doc.translatedSubtitles.length > 0) {
+        const srtContent = formatSrt(doc.translatedSubtitles);
+        const contentWithBOM = '\uFEFF' + srtContent;
+        zip.file(`edited_${doc.name}`, contentWithBOM);
+      }
+    });
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'edited_subtitles.zip';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -294,41 +296,14 @@ const App: React.FC = () => {
   };
 
   const handleSplitFilteredLines = useCallback(() => {
+    if (!currentDocument) return;
+
     setPreviousSubtitles(translatedSubtitles); // Save state for undo
-    setTranslatedSubtitles(prev => {
-      // Calculate current filtered subtitles based on current filter states
-      const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
-      
-      let currentFilteredSubtitles = prev;
-      if (hasActiveFilter) {
-        currentFilteredSubtitles = prev.filter(sub => {
-          const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
-          
-          if (showErrorsOnly && showLongLinesOnly) {
-            return sub.isLong || lineLengthExceeded;
-          }
-          if (showErrorsOnly) {
-            return sub.isLong;
-          }
-          if (showLongLinesOnly) {
-            return lineLengthExceeded;
-          }
-          if (showTooShortOnly) {
-            return sub.isTooShort;
-          }
-          if (showTooLongOnly) {
-            return sub.isTooLong;
-          }
-          if (showTimecodeConflictsOnly) {
-            return sub.hasTimecodeConflict;
-          }
-          return false; 
-        });
-      }
-      
-      return prev.map(sub => {
+    updateCurrentDocument(doc => ({
+      ...doc,
+      translatedSubtitles: doc.translatedSubtitles.map(sub => {
         // Only process subtitles that are currently visible in filtered view
-        const isInFilteredView = currentFilteredSubtitles.some(filteredSub => filteredSub.id === sub.id);
+        const isInFilteredView = filteredSubtitles.some(filteredSub => filteredSub.id === sub.id);
         
         if (isInFilteredView) {
           const lines = sub.text.split('\n');
@@ -345,7 +320,7 @@ const App: React.FC = () => {
           const duration = calculateDuration(sub.startTime, sub.endTime);
           const isTooShort = duration < minDurationSeconds;
           const isTooLong = duration > maxDurationSeconds;
-          const hasConflict = hasTimecodeConflict({...sub, text: newText}, prev.map(s => 
+          const hasConflict = hasTimecodeConflict({...sub, text: newText}, doc.translatedSubtitles.map(s => 
             s.id === sub.id ? {...sub, text: newText} : s
           ));
           
@@ -365,13 +340,16 @@ const App: React.FC = () => {
           };
         }
         return sub;
-      });
-    });
-  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
+      })
+    }));
+  }, [currentDocument, translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
 
   const handleUndo = () => {
-    if (previousSubtitles) {
-      setTranslatedSubtitles(previousSubtitles);
+    if (previousSubtitles && currentDocument) {
+      updateCurrentDocument(doc => ({
+        ...doc,
+        translatedSubtitles: previousSubtitles
+      }));
       setPreviousSubtitles(null);
     }
   };
@@ -379,10 +357,9 @@ const App: React.FC = () => {
   const handleClearSession = () => {
     if (confirm('Are you sure you want to start fresh? This will clear all current work.')) {
       sessionManager.clearSession();
-      setOriginalSubtitles([]);
-      setTranslatedSubtitles([]);
+      setDocuments([]);
+      setCurrentDocumentId(null);
       setPreviousSubtitles(null);
-      setFileName('');
       setSessionRestored(false);
       console.log('🗑️ Session cleared. Starting fresh!');
     }
@@ -397,41 +374,14 @@ const App: React.FC = () => {
   };
 
   const handleRemoveBreaksFromFiltered = useCallback(() => {
+    if (!currentDocument) return;
+
     setPreviousSubtitles(translatedSubtitles); // Save state for undo
-    setTranslatedSubtitles(prev => {
-      // Calculate current filtered subtitles based on current filter states
-      const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
-      
-      let currentFilteredSubtitles = prev;
-      if (hasActiveFilter) {
-        currentFilteredSubtitles = prev.filter(sub => {
-          const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
-          
-          if (showErrorsOnly && showLongLinesOnly) {
-            return sub.isLong || lineLengthExceeded;
-          }
-          if (showErrorsOnly) {
-            return sub.isLong;
-          }
-          if (showLongLinesOnly) {
-            return lineLengthExceeded;
-          }
-          if (showTooShortOnly) {
-            return sub.isTooShort;
-          }
-          if (showTooLongOnly) {
-            return sub.isTooLong;
-          }
-          if (showTimecodeConflictsOnly) {
-            return sub.hasTimecodeConflict;
-          }
-          return false; 
-        });
-      }
-      
-      return prev.map(sub => {
+    updateCurrentDocument(doc => ({
+      ...doc,
+      translatedSubtitles: doc.translatedSubtitles.map(sub => {
         // Only process subtitles that are currently visible in filtered view
-        const isInFilteredView = currentFilteredSubtitles.some(filteredSub => filteredSub.id === sub.id);
+        const isInFilteredView = filteredSubtitles.some(filteredSub => filteredSub.id === sub.id);
         
         if (isInFilteredView && sub.text.includes('\n')) {
           const singleLineText = sub.text.replace(/\n/g, ' ');
@@ -440,7 +390,7 @@ const App: React.FC = () => {
           const duration = calculateDuration(sub.startTime, sub.endTime);
           const isTooShort = duration < minDurationSeconds;
           const isTooLong = duration > maxDurationSeconds;
-          const hasConflict = hasTimecodeConflict({...sub, text: singleLineText}, prev.map(s => 
+          const hasConflict = hasTimecodeConflict({...sub, text: singleLineText}, doc.translatedSubtitles.map(s => 
             s.id === sub.id ? {...sub, text: singleLineText} : s
           ));
           
@@ -460,46 +410,53 @@ const App: React.FC = () => {
           };
         }
         return sub;
-      });
-    });
-  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
+      })
+    }));
+  }, [currentDocument, translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
 
   const handleUndoSubtitle = useCallback((id: number) => {
-    setTranslatedSubtitles(prev => prev.map(sub => {
-      if (sub.id === id && sub.previousText) {
-        const charCount = sub.previousText.replace(/\n/g, '').length;
-        const isLong = charCount > maxTotalChars;
-        const duration = calculateDuration(sub.startTime, sub.endTime);
-        const isTooShort = duration < minDurationSeconds;
-        const isTooLong = duration > maxDurationSeconds;
-        return {
-          ...sub,
-          text: sub.previousText,
-          charCount,
-          isLong,
-          duration,
-          isTooShort,
-          isTooLong,
-          previousText: undefined,
-          canUndo: false,
-          recentlyEdited: false
-        };
-      }
-      return sub;
+    if (!currentDocument) return;
+
+    updateCurrentDocument(doc => ({
+      ...doc,
+      translatedSubtitles: doc.translatedSubtitles.map(sub => {
+        if (sub.id === id && sub.previousText) {
+          const charCount = sub.previousText.replace(/\n/g, '').length;
+          const isLong = charCount > maxTotalChars;
+          const duration = calculateDuration(sub.startTime, sub.endTime);
+          const isTooShort = duration < minDurationSeconds;
+          const isTooLong = duration > maxDurationSeconds;
+          return {
+            ...sub,
+            text: sub.previousText,
+            charCount,
+            isLong,
+            duration,
+            isTooShort,
+            isTooLong,
+            previousText: undefined,
+            canUndo: false,
+            recentlyEdited: false
+          };
+        }
+        return sub;
+      })
     }));
-  }, [maxTotalChars, minDurationSeconds, maxDurationSeconds]);
+  }, [currentDocument, maxTotalChars, minDurationSeconds, maxDurationSeconds]);
 
   const handleSplitSubtitle = useCallback((id: number) => {
-    setTranslatedSubtitles(prev => {
-      const subtitleIndex = prev.findIndex(sub => sub.id === id);
-      if (subtitleIndex === -1) return prev;
+    if (!currentDocument) return;
+
+    updateCurrentDocument(doc => {
+      const subtitleIndex = doc.translatedSubtitles.findIndex(sub => sub.id === id);
+      if (subtitleIndex === -1) return doc;
       
-      const subtitle = prev[subtitleIndex];
+      const subtitle = doc.translatedSubtitles[subtitleIndex];
       const splitResult = splitTextIntelligently(subtitle.text);
       
       if (!splitResult.secondPart) {
         console.log('❌ Cannot split subtitle - insufficient content');
-        return prev;
+        return doc;
       }
       
       // Calculate new timing
@@ -543,10 +500,10 @@ const App: React.FC = () => {
       
       // Create new array with split subtitles
       const newSubtitles = [
-        ...prev.slice(0, subtitleIndex),
+        ...doc.translatedSubtitles.slice(0, subtitleIndex),
         firstSubtitle,
         secondSubtitle,
-        ...prev.slice(subtitleIndex + 1)
+        ...doc.translatedSubtitles.slice(subtitleIndex + 1)
       ];
       
       // Renumber all IDs to maintain sequence
@@ -563,120 +520,92 @@ const App: React.FC = () => {
       });
       console.log(`📋 Split segments marked as 'recently edited' - will remain visible in current filter until manually changed`);
       
-      return renumberedSubtitles;
-    });
-    
-    // Also update original subtitles if they exist
-    setOriginalSubtitles(prev => {
-      if (prev.length === 0) return prev;
-      
-      const subtitleIndex = prev.findIndex(sub => sub.id === id);
-      if (subtitleIndex === -1) return prev;
-      
-      const subtitle = prev[subtitleIndex];
-      const splitResult = splitTextIntelligently(subtitle.text);
-      
-      if (!splitResult.secondPart) return prev;
-      
-      const timeResult = splitTimeProportionally(
-        subtitle.startTime, 
-        subtitle.endTime, 
-        splitResult.firstRatio
-      );
-      
-      const firstSubtitle: Subtitle = {
-        ...subtitle,
-        text: splitResult.firstPart,
-        endTime: timeResult.firstEnd,
-        charCount: splitResult.firstPart.replace(/\n/g, '').length,
-        isLong: splitResult.firstPart.replace(/\n/g, '').length > maxTotalChars,
-        duration: calculateDuration(subtitle.startTime, timeResult.firstEnd),
-        isTooShort: calculateDuration(subtitle.startTime, timeResult.firstEnd) < minDurationSeconds,
-        isTooLong: calculateDuration(subtitle.startTime, timeResult.firstEnd) > maxDurationSeconds,
-        recentlyEdited: true, // Mark as recently edited to keep in view
-        editedAt: Date.now()
+      return {
+        ...doc,
+        translatedSubtitles: renumberedSubtitles
       };
-      
-      const secondSubtitle: Subtitle = {
-        ...subtitle,
-        id: subtitle.id + 1,
-        text: splitResult.secondPart,
-        startTime: timeResult.secondStart,
-        charCount: splitResult.secondPart.replace(/\n/g, '').length,
-        isLong: splitResult.secondPart.replace(/\n/g, '').length > maxTotalChars,
-        duration: calculateDuration(timeResult.secondStart, subtitle.endTime),
-        isTooShort: calculateDuration(timeResult.secondStart, subtitle.endTime) < minDurationSeconds,
-        isTooLong: calculateDuration(timeResult.secondStart, subtitle.endTime) > maxDurationSeconds,
-        recentlyEdited: true, // Mark as recently edited to keep in view
-        editedAt: Date.now()
-      };
-      
-      const newSubtitles = [
-        ...prev.slice(0, subtitleIndex),
-        firstSubtitle,
-        secondSubtitle,
-        ...prev.slice(subtitleIndex + 1)
-      ];
-      
-      return newSubtitles.map((sub, index) => ({
-        ...sub,
-        id: index + 1
-      }));
     });
     
     // Clear global undo since structure changed
     setPreviousSubtitles(null);
-  }, [maxTotalChars, minDurationSeconds, maxDurationSeconds]);
+  }, [currentDocument, maxTotalChars, minDurationSeconds, maxDurationSeconds]);
+
+  const handleMergeSubtitleWithNext = useCallback((id: number) => {
+    if (!currentDocument) return;
+
+    updateCurrentDocument(doc => {
+      const index = doc.translatedSubtitles.findIndex(s => s.id === id);
+      if (index === -1 || index === doc.translatedSubtitles.length - 1) return doc; // nothing to merge
+
+      const current = doc.translatedSubtitles[index];
+      const next = doc.translatedSubtitles[index + 1];
+
+      const mergedText = `${current.text} ${next.text}`.replace(/\s+/g, ' ').replace(/\s*\n\s*/g, ' ').trim();
+      const mergedStart = current.startTime;
+      const mergedEnd = next.endTime;
+
+      const charCount = mergedText.replace(/\n/g, '').length;
+      const duration = calculateDuration(mergedStart, mergedEnd);
+
+      const merged: Subtitle = {
+        ...current,
+        text: mergedText,
+        startTime: mergedStart,
+        endTime: mergedEnd,
+        charCount,
+        isLong: charCount > maxTotalChars,
+        duration,
+        isTooShort: duration < minDurationSeconds,
+        isTooLong: duration > maxDurationSeconds,
+        recentlyEdited: true,
+        editedAt: Date.now(),
+        canUndo: false,
+        previousText: undefined
+      };
+
+      // Build new subtitles: replace current with merged, remove next
+      const newSubtitles = [
+        ...doc.translatedSubtitles.slice(0, index),
+        merged,
+        ...doc.translatedSubtitles.slice(index + 2)
+      ].map((sub, i) => ({ ...sub, id: i + 1 }));
+
+      // Recompute conflicts
+      const recomputed = newSubtitles.map(s => ({
+        ...s,
+        hasTimecodeConflict: hasTimecodeConflict(s, newSubtitles)
+      }));
+
+      return {
+        ...doc,
+        translatedSubtitles: recomputed
+      };
+    });
+
+    // Structure changed, clear global undo
+    setPreviousSubtitles(null);
+  }, [currentDocument, maxTotalChars, minDurationSeconds, maxDurationSeconds]);
 
   const handleBulkSplitFiltered = useCallback(() => {
+    if (!currentDocument) return;
+
     setPreviousSubtitles(translatedSubtitles); // Save state for undo
-    setTranslatedSubtitles(prev => {
-      // Calculate current filtered subtitles based on current filter states
-      const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
-      
-      let currentFilteredSubtitles = prev;
-      if (hasActiveFilter) {
-        currentFilteredSubtitles = prev.filter(sub => {
-          const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
-          
-          if (showErrorsOnly && showLongLinesOnly) {
-            return sub.isLong || lineLengthExceeded;
-          }
-          if (showErrorsOnly) {
-            return sub.isLong;
-          }
-          if (showLongLinesOnly) {
-            return lineLengthExceeded;
-          }
-          if (showTooShortOnly) {
-            return sub.isTooShort;
-          }
-          if (showTooLongOnly) {
-            return sub.isTooLong;
-          }
-          if (showTimecodeConflictsOnly) {
-            return sub.hasTimecodeConflict;
-          }
-          return false; 
-        });
-      }
-      
+    updateCurrentDocument(doc => {
       // Find all subtitles that can be split in the filtered view
-      const splittableSubtitles = currentFilteredSubtitles.filter(sub => {
+      const splittableSubtitles = filteredSubtitles.filter(sub => {
         const words = sub.text.replace(/\n/g, ' ').trim().split(' ');
         return words.length >= 2 && sub.text.trim().length > 10;
       });
       
       if (splittableSubtitles.length === 0) {
         console.log('❌ No splittable subtitles found in filtered view');
-        return prev;
+        return doc;
       }
       
       console.log(`✂️ Bulk splitting ${splittableSubtitles.length} filtered subtitles`);
       
       // Process each splittable subtitle
-      let newSubtitles = [...prev];
-      let idOffset = 0; // Track how many new subtitles we've added
+      let newSubtitles = [...doc.translatedSubtitles];
       
       // Sort by ID to process in order
       const sortedSplittableIds = splittableSubtitles.map(sub => sub.id).sort((a, b) => a - b);
@@ -736,8 +665,6 @@ const App: React.FC = () => {
           secondSubtitle,
           ...newSubtitles.slice(subtitleIndex + 1)
         ];
-        
-        idOffset += 1; // We added one more subtitle
       }
       
       // Renumber all IDs to maintain sequence
@@ -749,116 +676,78 @@ const App: React.FC = () => {
       console.log(`📋 Bulk split completed - ${splittableSubtitles.length} subtitles split into ${splittableSubtitles.length * 2} segments`);
       console.log(`📋 All split segments marked as 'recently edited' - will remain visible in current filter until manually changed`);
       
-      return renumberedSubtitles;
-    });
-    
-    // Also update original subtitles if they exist
-    setOriginalSubtitles(prev => {
-      if (prev.length === 0) return prev;
-      
-      // Calculate current filtered subtitles based on current filter states
-      const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
-      
-      let currentFilteredSubtitles = prev;
-      if (hasActiveFilter) {
-        currentFilteredSubtitles = prev.filter(sub => {
-          const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
-          
-          if (showErrorsOnly && showLongLinesOnly) {
-            return sub.isLong || lineLengthExceeded;
-          }
-          if (showErrorsOnly) {
-            return sub.isLong;
-          }
-          if (showLongLinesOnly) {
-            return lineLengthExceeded;
-          }
-          if (showTooShortOnly) {
-            return sub.isTooShort;
-          }
-          if (showTooLongOnly) {
-            return sub.isTooLong;
-          }
-          if (showTimecodeConflictsOnly) {
-            return sub.hasTimecodeConflict;
-          }
-          return false; 
-        });
-      }
-      
-      // Find all subtitles that can be split in the filtered view
-      const splittableSubtitles = currentFilteredSubtitles.filter(sub => {
-        const words = sub.text.replace(/\n/g, ' ').trim().split(' ');
-        return words.length >= 2 && sub.text.trim().length > 10;
-      });
-      
-      if (splittableSubtitles.length === 0) return prev;
-      
-      // Process each splittable subtitle
-      let newSubtitles = [...prev];
-      
-      // Sort by ID to process in order
-      const sortedSplittableIds = splittableSubtitles.map(sub => sub.id).sort((a, b) => a - b);
-      
-      for (const subtitleId of sortedSplittableIds) {
-        const subtitleIndex = newSubtitles.findIndex(sub => sub.id === subtitleId);
-        if (subtitleIndex === -1) continue;
-        
-        const subtitle = newSubtitles[subtitleIndex];
-        const splitResult = splitTextIntelligently(subtitle.text);
-        
-        if (!splitResult.secondPart) continue;
-        
-        const timeResult = splitTimeProportionally(
-          subtitle.startTime, 
-          subtitle.endTime, 
-          splitResult.firstRatio
-        );
-        
-        const firstSubtitle: Subtitle = {
-          ...subtitle,
-          text: splitResult.firstPart,
-          endTime: timeResult.firstEnd,
-          charCount: splitResult.firstPart.replace(/\n/g, '').length,
-          isLong: splitResult.firstPart.replace(/\n/g, '').length > maxTotalChars,
-          duration: calculateDuration(subtitle.startTime, timeResult.firstEnd),
-          isTooShort: calculateDuration(subtitle.startTime, timeResult.firstEnd) < minDurationSeconds,
-          isTooLong: calculateDuration(subtitle.startTime, timeResult.firstEnd) > maxDurationSeconds,
-          recentlyEdited: true,
-          editedAt: Date.now()
-        };
-        
-        const secondSubtitle: Subtitle = {
-          ...subtitle,
-          id: subtitle.id + 1,
-          text: splitResult.secondPart,
-          startTime: timeResult.secondStart,
-          charCount: splitResult.secondPart.replace(/\n/g, '').length,
-          isLong: splitResult.secondPart.replace(/\n/g, '').length > maxTotalChars,
-          duration: calculateDuration(timeResult.secondStart, subtitle.endTime),
-          isTooShort: calculateDuration(timeResult.secondStart, subtitle.endTime) < minDurationSeconds,
-          isTooLong: calculateDuration(timeResult.secondStart, subtitle.endTime) > maxDurationSeconds,
-          recentlyEdited: true,
-          editedAt: Date.now()
-        };
-        
-        newSubtitles = [
-          ...newSubtitles.slice(0, subtitleIndex),
-          firstSubtitle,
-          secondSubtitle,
-          ...newSubtitles.slice(subtitleIndex + 1)
-        ];
-      }
-      
-      return newSubtitles.map((sub, index) => ({
-        ...sub,
-        id: index + 1
-      }));
+      return {
+        ...doc,
+        translatedSubtitles: renumberedSubtitles
+      };
     });
     
     // Clear global undo since structure changed
     setPreviousSubtitles(null);
-  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
+  }, [currentDocument, translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
+
+  const handleFixTimecodeConflicts = useCallback(() => {
+    if (!currentDocument) return;
+
+    setPreviousSubtitles(translatedSubtitles); // Save state for undo
+    updateCurrentDocument(doc => {
+      // Find all subtitles with timecode conflicts in the filtered view
+      const conflictingSubtitles = filteredSubtitles.filter(sub => sub.hasTimecodeConflict);
+      
+      if (conflictingSubtitles.length === 0) {
+        console.log('❌ No timecode conflicts found in filtered view');
+        return doc;
+      }
+      
+      console.log(`🔧 Fixing timecode conflicts for ${conflictingSubtitles.length} filtered subtitles`);
+      
+      // Process each conflicting subtitle
+      let newSubtitles = [...doc.translatedSubtitles];
+      
+      // Sort by ID to process in order
+      const sortedConflictingIds = conflictingSubtitles.map(sub => sub.id).sort((a, b) => a - b);
+      
+      for (const subtitleId of sortedConflictingIds) {
+        const subtitleIndex = newSubtitles.findIndex(sub => sub.id === subtitleId);
+        if (subtitleIndex === -1) continue;
+        
+        const subtitle = newSubtitles[subtitleIndex];
+        
+        // Reduce end time by 1ms
+        const newEndTime = reduceTimecodeByOneMs(subtitle.endTime);
+        
+        // Update the subtitle
+        newSubtitles[subtitleIndex] = {
+          ...subtitle,
+          endTime: newEndTime,
+          duration: calculateDuration(subtitle.startTime, newEndTime),
+          isTooShort: calculateDuration(subtitle.startTime, newEndTime) < minDurationSeconds,
+          isTooLong: calculateDuration(subtitle.startTime, newEndTime) > maxDurationSeconds,
+          recentlyEdited: true,
+          editedAt: Date.now(),
+          canUndo: true,
+          previousText: subtitle.text
+        };
+      }
+      
+      // Recalculate conflicts after changes
+      const finalSubtitles = newSubtitles.map(sub => {
+        const hasConflict = hasTimecodeConflict(sub, newSubtitles);
+        return {
+          ...sub,
+          hasTimecodeConflict: hasConflict
+        };
+      });
+      
+      console.log(`📋 Timecode conflicts fixed - reduced end times by 1ms for ${conflictingSubtitles.length} subtitles`);
+      console.log(`📋 Fixed segments marked as 'recently edited' - will remain visible in current filter until manually changed`);
+      
+      return {
+        ...doc,
+        translatedSubtitles: finalSubtitles
+      };
+    });
+  }, [currentDocument, translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
   
   const hasTotalLengthErrors = useMemo(() => translatedSubtitles.some(sub => sub.isLong), [translatedSubtitles]);
   
@@ -935,13 +824,18 @@ const App: React.FC = () => {
       return words.length >= 2 && sub.text.trim().length > 10;
     }), [filteredSubtitles]);
 
+  const hasTimecodeConflictsInFiltered = useMemo(() => 
+    filteredSubtitles.some(sub => sub.hasTimecodeConflict), [filteredSubtitles]);
+
   const canUndo = previousSubtitles !== null;
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 font-sans flex flex-col">
       <Header 
         onDownload={handleDownload}
+        onDownloadAll={handleDownloadAll}
         hasTranslatedSubs={translatedSubtitles.length > 0}
+        hasMultipleDocuments={documents.length > 1}
         onUndo={handleUndo}
         canUndo={canUndo}
         onClearSession={handleClearSession}
@@ -952,14 +846,14 @@ const App: React.FC = () => {
       />
 
       <main className="flex-grow container mx-auto p-4 md:p-8">
-        {translatedSubtitles.length === 0 ? (
+        {documents.length === 0 ? (
           <div className="text-center mt-16 max-w-2xl mx-auto">
             <div className="flex justify-center mb-6">
               <Logo size="large" />
             </div>
             <p className="text-gray-400 text-lg mb-8">
-              Upload your translated .srt file to begin. You can also upload an original version for side-by-side comparison.
-              The app will automatically flag lines longer than the specified character limits and help you fix them.
+              Upload your translated .srt files to begin. You can upload multiple files and work on them simultaneously.
+              You can also upload original versions for side-by-side comparison.
             </p>
             
             {/* Character Limit Settings */}
@@ -1035,49 +929,71 @@ const App: React.FC = () => {
             </div>
             
             <div className="flex flex-col md:flex-row gap-8 justify-center">
-              <FileUpload label="Upload Translated SRT" onFileUpload={(c, n) => handleFileUpload(c, 'translated', n)} />
-              <FileUpload label="Upload Original SRT (Optional)" onFileUpload={(c, n) => handleFileUpload(c, 'original', n)} />
+              <FileUpload 
+                label="Upload Translated SRT Files" 
+                onFileUpload={(c, n) => handleFileUpload(c, 'translated', n)} 
+                multiple={true}
+              />
+              <FileUpload 
+                label="Upload Original SRT Files (Optional)" 
+                onFileUpload={(c, n) => handleFileUpload(c, 'original', n)} 
+                multiple={true}
+              />
             </div>
           </div>
         ) : (
-          <SubtitleEditor 
-            subtitles={filteredSubtitles}
-            showOriginal={showOriginal && originalSubtitles.length > 0}
-            setShowOriginal={setShowOriginal}
-            showTimecodes={showTimecodes}
-            setShowTimecodes={setShowTimecodes}
-            hasTotalLengthErrors={hasTotalLengthErrors}
-            showErrorsOnly={showErrorsOnly}
-            setShowErrorsOnly={setShowErrorsOnly}
-            hasLongLines={hasLongLines}
-            showLongLinesOnly={showLongLinesOnly}
-            setShowLongLinesOnly={setShowLongLinesOnly}
-            hasTooShortSegments={hasTooShortSegments}
-            showTooShortOnly={showTooShortOnly}
-            setShowTooShortOnly={setShowTooShortOnly}
-            hasTooLongSegments={hasTooLongSegments}
-            showTooLongOnly={showTooLongOnly}
-            setShowTooLongOnly={setShowTooLongOnly}
-            hasTimecodeConflicts={hasTimecodeConflicts}
-            showTimecodeConflictsOnly={showTimecodeConflictsOnly}
-            setShowTimecodeConflictsOnly={setShowTimecodeConflictsOnly}
-            hasMultiLineInFiltered={hasMultiLineInFiltered}
-            onRemoveBreaksFromFiltered={handleRemoveBreaksFromFiltered}
-            hasLongLinesInFiltered={hasLongLinesInFiltered}
-            onSplitFilteredLines={handleSplitFilteredLines}
-            hasSplittableInFiltered={hasSplittableInFiltered}
-            onBulkSplitFiltered={handleBulkSplitFiltered}
-            onMergeNext={handleMergeSubtitleWithNext}
-            onShowAll={handleShowAll}
-            onUpdateSubtitle={handleUpdateSubtitle}
-            onUpdateTimecode={handleUpdateTimecode}
-            onUndoSubtitle={handleUndoSubtitle}
-            onSplitSubtitle={handleSplitSubtitle}
-            maxTotalChars={maxTotalChars}
-            maxLineChars={maxLineChars}
-            minDurationSeconds={minDurationSeconds}
-            maxDurationSeconds={maxDurationSeconds}
-          />
+          <div className="space-y-6">
+            <DocumentSelector
+              documents={documents}
+              currentDocumentId={currentDocumentId}
+              onSelectDocument={handleSelectDocument}
+              onCloseDocument={handleCloseDocument}
+              onNewDocument={handleNewDocument}
+            />
+            
+            {currentDocument && (
+              <SubtitleEditor 
+                subtitles={filteredSubtitles}
+                showOriginal={showOriginal && originalSubtitles.length > 0}
+                setShowOriginal={setShowOriginal}
+                showTimecodes={showTimecodes}
+                setShowTimecodes={setShowTimecodes}
+                hasTotalLengthErrors={hasTotalLengthErrors}
+                showErrorsOnly={showErrorsOnly}
+                setShowErrorsOnly={setShowErrorsOnly}
+                hasLongLines={hasLongLines}
+                showLongLinesOnly={showLongLinesOnly}
+                setShowLongLinesOnly={setShowLongLinesOnly}
+                hasTooShortSegments={hasTooShortSegments}
+                showTooShortOnly={showTooShortOnly}
+                setShowTooShortOnly={setShowTooShortOnly}
+                hasTooLongSegments={hasTooLongSegments}
+                showTooLongOnly={showTooLongOnly}
+                setShowTooLongOnly={setShowTooLongOnly}
+                hasTimecodeConflicts={hasTimecodeConflicts}
+                showTimecodeConflictsOnly={showTimecodeConflictsOnly}
+                setShowTimecodeConflictsOnly={setShowTimecodeConflictsOnly}
+                hasMultiLineInFiltered={hasMultiLineInFiltered}
+                onRemoveBreaksFromFiltered={handleRemoveBreaksFromFiltered}
+                hasLongLinesInFiltered={hasLongLinesInFiltered}
+                onSplitFilteredLines={handleSplitFilteredLines}
+                hasSplittableInFiltered={hasSplittableInFiltered}
+                onBulkSplitFiltered={handleBulkSplitFiltered}
+                hasTimecodeConflictsInFiltered={hasTimecodeConflictsInFiltered}
+                onFixTimecodeConflicts={handleFixTimecodeConflicts}
+                onMergeNext={handleMergeSubtitleWithNext}
+                onShowAll={handleShowAll}
+                onUpdateSubtitle={handleUpdateSubtitle}
+                onUpdateTimecode={handleUpdateTimecode}
+                onUndoSubtitle={handleUndoSubtitle}
+                onSplitSubtitle={handleSplitSubtitle}
+                maxTotalChars={maxTotalChars}
+                maxLineChars={maxLineChars}
+                minDurationSeconds={minDurationSeconds}
+                maxDurationSeconds={maxDurationSeconds}
+              />
+            )}
+          </div>
         )}
       </main>
     </div>

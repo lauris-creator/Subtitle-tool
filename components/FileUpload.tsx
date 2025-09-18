@@ -5,9 +5,10 @@ import { UploadIcon } from './icons/Icons';
 interface FileUploadProps {
   label: string;
   onFileUpload: (content: string, name: string) => void;
+  multiple?: boolean;
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ label, onFileUpload }) => {
+const FileUpload: React.FC<FileUploadProps> = ({ label, onFileUpload, multiple = false }) => {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleFile = (file: File) => {
@@ -21,6 +22,21 @@ const FileUpload: React.FC<FileUploadProps> = ({ label, onFileUpload }) => {
     } else {
       alert('Please upload a valid .srt file.');
     }
+  };
+
+  const handleFiles = (files: FileList) => {
+    const srtFiles = Array.from(files).filter(file => file.name.endsWith('.srt'));
+    
+    if (srtFiles.length === 0) {
+      alert('Please upload valid .srt files.');
+      return;
+    }
+
+    if (srtFiles.length !== files.length) {
+      alert(`Only ${srtFiles.length} of ${files.length} files were valid .srt files.`);
+    }
+
+    srtFiles.forEach(file => handleFile(file));
   };
 
   const onDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -39,14 +55,22 @@ const FileUpload: React.FC<FileUploadProps> = ({ label, onFileUpload }) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      if (multiple) {
+        handleFiles(e.dataTransfer.files);
+      } else {
+        handleFile(e.dataTransfer.files[0]);
+      }
     }
-  }, [onFileUpload]);
+  }, [onFileUpload, multiple]);
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      if (multiple) {
+        handleFiles(e.target.files);
+      } else {
+        handleFile(e.target.files[0]);
+      }
     }
   };
 
@@ -65,13 +89,16 @@ const FileUpload: React.FC<FileUploadProps> = ({ label, onFileUpload }) => {
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         onChange={onFileChange}
         accept=".srt"
+        multiple={multiple}
       />
       <div className="text-center">
         <UploadIcon className="mx-auto h-12 w-12 text-gray-500" />
         <p className="mt-2 text-sm text-gray-400">
           <span className="font-semibold text-sky-400">{label}</span> or drag and drop
         </p>
-        <p className="text-xs text-gray-500">SRT files only</p>
+        <p className="text-xs text-gray-500">
+          {multiple ? 'Multiple SRT files' : 'SRT files only'}
+        </p>
       </div>
     </div>
   );
