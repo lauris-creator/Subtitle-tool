@@ -19,17 +19,8 @@ export interface Subtitle {
   canUndo?: boolean;
 }
 
-export interface Document {
-  id: string;
-  name: string;
-  translatedSubtitles: Subtitle[];
-  originalSubtitles: Subtitle[];
-  lastModified: number;
-}
-
 export interface SessionData {
-  documents: Document[];
-  currentDocumentId: string | null;
+  translatedSubtitles: Subtitle[];
   maxTotalChars: number;
   maxLineChars: number;
   minDurationSeconds: number;
