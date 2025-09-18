@@ -178,6 +178,16 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
               <span>Bulk Split Filtered</span>
             </button>
           )}
+          {hasTimecodeConflictsInFiltered && (
+             <button
+              onClick={onFixTimecodeConflicts}
+              className="flex items-center text-sm transition-colors text-red-400 hover:text-red-300"
+              title="Fix timecode conflicts by reducing end times by 1ms"
+            >
+              <span className="mr-1">🔧</span>
+              <span>Fix Conflicts</span>
+            </button>
+          )}
           {hasOriginalText && (
             <button
               onClick={() => setShowOriginal(!showOriginal)}
