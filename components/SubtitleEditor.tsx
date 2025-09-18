@@ -37,6 +37,7 @@ interface SubtitleEditorProps {
   onUpdateTimecode: (id: number, newStartTime: string, newEndTime: string) => void;
   onUndoSubtitle: (id: number) => void;
   onSplitSubtitle: (id: number) => void;
+  onMergeNext: (id: number) => void;
   maxTotalChars: number;
   maxLineChars: number;
   minDurationSeconds: number;
@@ -73,6 +74,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     onBulkSplitFiltered,
     hasTimecodeConflictsInFiltered,
     onFixTimecodeConflicts,
+    onMergeNext,
     onShowAll,
     maxTotalChars,
     maxLineChars,
@@ -218,6 +220,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
               maxLineChars={maxLineChars}
               minDurationSeconds={minDurationSeconds}
               maxDurationSeconds={maxDurationSeconds}
+              onMergeNext={onMergeNext}
               {...itemProps}
             />
           ))}
