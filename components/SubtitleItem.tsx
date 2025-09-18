@@ -13,6 +13,7 @@ interface SubtitleItemProps {
   onUpdateTimecode: (id: number, newStartTime: string, newEndTime: string) => void;
   onUndoSubtitle: (id: number) => void;
   onSplitSubtitle: (id: number) => void;
+  onMergeNext: (id: number) => void;
   maxTotalChars: number;
   maxLineChars: number;
   minDurationSeconds: number;
@@ -27,6 +28,7 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
   onUpdateTimecode,
   onUndoSubtitle,
   onSplitSubtitle,
+  onMergeNext,
   maxTotalChars,
   maxLineChars,
   minDurationSeconds,
@@ -152,6 +154,14 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
                   Split
                 </button>
               )}
+              <button
+                onClick={() => onMergeNext(subtitle.id)}
+                className="flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300 transition-colors"
+                title="Merge this subtitle with the next one"
+              >
+                <span className="h-3 w-3">➕</span>
+                Merge Next
+              </button>
             </div>
           </div>
         )}

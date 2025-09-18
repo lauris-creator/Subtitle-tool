@@ -187,6 +187,96 @@ const App: React.FC = () => {
     setPreviousSubtitles(null); // Manual edit clears global undo
   }, [maxTotalChars, minDurationSeconds, maxDurationSeconds]);
 
+  const handleMergeSubtitleWithNext = useCallback((id: number) => {
+    setTranslatedSubtitles(prev => {
+      const index = prev.findIndex(s => s.id === id);
+      if (index === -1 || index === prev.length - 1) return prev; // nothing to merge
+
+      const current = prev[index];
+      const next = prev[index + 1];
+
+      const mergedText = `${current.text} ${next.text}`.replace(/\s+/g, ' ').replace(/\s*\n\s*/g, ' ').trim();
+      const mergedStart = current.startTime;
+      const mergedEnd = next.endTime;
+
+      const charCount = mergedText.replace(/\n/g, '').length;
+      const duration = calculateDuration(mergedStart, mergedEnd);
+
+      const merged: Subtitle = {
+        ...current,
+        text: mergedText,
+        startTime: mergedStart,
+        endTime: mergedEnd,
+        charCount,
+        isLong: charCount > maxTotalChars,
+        duration,
+        isTooShort: duration < minDurationSeconds,
+        isTooLong: duration > maxDurationSeconds,
+        recentlyEdited: true,
+        editedAt: Date.now(),
+        canUndo: false,
+        previousText: undefined
+      };
+
+      // Build new subtitles: replace current with merged, remove next
+      const newSubtitles = [
+        ...prev.slice(0, index),
+        merged,
+        ...prev.slice(index + 2)
+      ].map((sub, i) => ({ ...sub, id: i + 1 }));
+
+      // Recompute conflicts
+      const recomputed = newSubtitles.map(s => ({
+        ...s,
+        hasTimecodeConflict: hasTimecodeConflict(s, newSubtitles)
+      }));
+
+      return recomputed;
+    });
+
+    // Merge originals if present
+    setOriginalSubtitles(prev => {
+      if (!prev || prev.length === 0) return prev;
+      const index = prev.findIndex(s => s.id === id);
+      if (index === -1 || index === prev.length - 1) return prev;
+
+      const current = prev[index];
+      const next = prev[index + 1];
+
+      const mergedText = `${current.text} ${next.text}`.replace(/\s+/g, ' ').replace(/\s*\n\s*/g, ' ').trim();
+      const mergedStart = current.startTime;
+      const mergedEnd = next.endTime;
+
+      const charCount = mergedText.replace(/\n/g, '').length;
+      const duration = calculateDuration(mergedStart, mergedEnd);
+
+      const merged: Subtitle = {
+        ...current,
+        text: mergedText,
+        startTime: mergedStart,
+        endTime: mergedEnd,
+        charCount,
+        isLong: charCount > maxTotalChars,
+        duration,
+        isTooShort: duration < minDurationSeconds,
+        isTooLong: duration > maxDurationSeconds,
+        recentlyEdited: true,
+        editedAt: Date.now()
+      };
+
+      const newSubtitles = [
+        ...prev.slice(0, index),
+        merged,
+        ...prev.slice(index + 2)
+      ].map((sub, i) => ({ ...sub, id: i + 1 }));
+
+      return newSubtitles;
+    });
+
+    // Structure changed, clear global undo
+    setPreviousSubtitles(null);
+  }, [maxTotalChars, minDurationSeconds, maxDurationSeconds]);
+
   const handleDownload = () => {
     if (translatedSubtitles.length === 0) return;
     const srtContent = formatSrt(translatedSubtitles);
@@ -977,6 +1067,7 @@ const App: React.FC = () => {
             onSplitFilteredLines={handleSplitFilteredLines}
             hasSplittableInFiltered={hasSplittableInFiltered}
             onBulkSplitFiltered={handleBulkSplitFiltered}
+            onMergeNext={handleMergeSubtitleWithNext}
             onShowAll={handleShowAll}
             onUpdateSubtitle={handleUpdateSubtitle}
             onUpdateTimecode={handleUpdateTimecode}
