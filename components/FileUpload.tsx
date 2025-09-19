@@ -5,26 +5,30 @@ import { UploadIcon } from './icons/Icons';
 interface FileUploadProps {
   label: string;
   onFileUpload: (content: string, name: string) => void;
+  onMultiFileUpload?: (files: Array<{content: string, name: string}>) => void;
   multiple?: boolean;
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ label, onFileUpload, multiple = false }) => {
+const FileUpload: React.FC<FileUploadProps> = ({ label, onFileUpload, onMultiFileUpload, multiple = false }) => {
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleFile = (file: File) => {
-    if (file && file.name.endsWith('.srt')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target?.result as string;
-        onFileUpload(content, file.name);
-      };
-      reader.readAsText(file);
-    } else {
-      alert('Please upload a valid .srt file.');
-    }
+  const handleFile = (file: File): Promise<{content: string, name: string}> => {
+    return new Promise((resolve, reject) => {
+      if (file && file.name.endsWith('.srt')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target?.result as string;
+          resolve({ content, name: file.name });
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsText(file);
+      } else {
+        reject(new Error('Please upload a valid .srt file.'));
+      }
+    });
   };
 
-  const handleFiles = (files: FileList) => {
+  const handleFiles = async (files: FileList) => {
     const srtFiles = Array.from(files).filter(file => file.name.endsWith('.srt'));
     
     if (srtFiles.length === 0) {
@@ -36,7 +40,26 @@ const FileUpload: React.FC<FileUploadProps> = ({ label, onFileUpload, multiple =
       alert(`Only ${srtFiles.length} of ${files.length} files were valid .srt files.`);
     }
 
-    srtFiles.forEach(file => handleFile(file));
+    if (multiple && onMultiFileUpload && srtFiles.length > 1) {
+      // Handle multiple files together
+      try {
+        const filePromises = srtFiles.map(file => handleFile(file));
+        const fileContents = await Promise.all(filePromises);
+        onMultiFileUpload(fileContents);
+      } catch (error) {
+        alert('Error reading files: ' + error.message);
+      }
+    } else {
+      // Handle single file or fallback to individual processing
+      srtFiles.forEach(async (file) => {
+        try {
+          const fileData = await handleFile(file);
+          onFileUpload(fileData.content, fileData.name);
+        } catch (error) {
+          alert('Error reading file: ' + error.message);
+        }
+      });
+    }
   };
 
   const onDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {

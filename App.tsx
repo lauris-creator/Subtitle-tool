@@ -1587,11 +1587,13 @@ const App: React.FC = () => {
               <FileUpload 
                 label="Upload Translated SRT" 
                 onFileUpload={(c, n) => handleFileUpload(c, 'translated', n)} 
+                onMultiFileUpload={(files) => handleMultiFileUpload(files, 'translated')}
                 multiple={true}
               />
               <FileUpload 
                 label="Upload Original SRT (Optional)" 
                 onFileUpload={(c, n) => handleFileUpload(c, 'original', n)} 
+                onMultiFileUpload={(files) => handleMultiFileUpload(files, 'original')}
                 multiple={true}
               />
             </div>
