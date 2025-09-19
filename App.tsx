@@ -28,6 +28,10 @@ const App: React.FC = () => {
   const [maxLineChars, setMaxLineChars] = useState<number>(MAX_LINE_CHARS);
   const [minDurationSeconds, setMinDurationSeconds] = useState<number>(1);
   const [maxDurationSeconds, setMaxDurationSeconds] = useState<number>(7);
+  
+  // Multi-file support
+  const [availableFiles, setAvailableFiles] = useState<string[]>([]);
+  const [currentFileFilter, setCurrentFileFilter] = useState<string | null>(null);
 
   // Restore session on component mount
   useEffect(() => {
@@ -591,6 +595,11 @@ const App: React.FC = () => {
     setShowTooShortOnly(false);
     setShowTooLongOnly(false);
     setShowTimecodeConflictsOnly(false);
+  };
+
+  const handleFileFilterChange = (fileName: string | null) => {
+    setCurrentFileFilter(fileName);
+    console.log(`📁 File filter changed to: ${fileName || 'All Files'}`);
   };
 
   const handleRemoveBreaksFromFiltered = useCallback(() => {
@@ -1350,6 +1359,9 @@ const App: React.FC = () => {
         maxLineChars={maxLineChars}
         minDurationSeconds={minDurationSeconds}
         maxDurationSeconds={maxDurationSeconds}
+        availableFiles={availableFiles}
+        currentFileFilter={currentFileFilter}
+        onFileFilterChange={handleFileFilterChange}
       />
 
       <main className="flex-grow container mx-auto p-4 md:p-8">
