@@ -16,7 +16,6 @@ interface HeaderProps {
   availableFiles: string[];
   currentFileFilter: string | null;
   onFileFilterChange: (fileName: string | null) => void;
-  onDownloadAll: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -31,8 +30,7 @@ const Header: React.FC<HeaderProps> = ({
   maxDurationSeconds,
   availableFiles,
   currentFileFilter,
-  onFileFilterChange,
-  onDownloadAll
+  onFileFilterChange
 }) => {
   return (
     <header className="bg-gray-800 shadow-md sticky top-0 z-10">
@@ -145,21 +143,11 @@ const Header: React.FC<HeaderProps> = ({
                 <button
                   onClick={onDownload}
                   className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors"
-                  title="Download current document"
+                  title={availableFiles.length > 1 ? "Download all files as ZIP" : "Download current document"}
                 >
                   <DownloadIcon className="h-5 w-5 mr-2" />
-                  Download Current
+                  {availableFiles.length > 1 ? `Download All (${availableFiles.length})` : 'Download Current'}
                 </button>
-                {availableFiles.length > 1 && (
-                  <button
-                    onClick={onDownloadAll}
-                    className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
-                    title="Download all files as ZIP"
-                  >
-                    <DownloadIcon className="h-5 w-5 mr-2" />
-                    Download All ({availableFiles.length})
-                  </button>
-                )}
               </div>
             )}
           </div>

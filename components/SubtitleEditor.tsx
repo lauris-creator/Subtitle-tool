@@ -238,20 +238,36 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
       </div>
       <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
         <div className="divide-y divide-gray-700">
-          {subtitles.map((subtitle) => (
-            <SubtitleItem
-              key={subtitle.id}
-              subtitle={subtitle}
-              showOriginal={showOriginal}
-              showTimecodes={showTimecodes}
-              maxTotalChars={maxTotalChars}
-              maxLineChars={maxLineChars}
-              minDurationSeconds={minDurationSeconds}
-              maxDurationSeconds={maxDurationSeconds}
-              onMergeNext={onMergeNext}
-              {...itemProps}
-            />
-          ))}
+          {subtitles.map((subtitle, index) => {
+            const isNewFile = index === 0 || subtitle.sourceFile !== subtitles[index - 1].sourceFile;
+            
+            return (
+              <React.Fragment key={subtitle.id}>
+                {isNewFile && subtitle.sourceFile && (
+                  <div className="bg-purple-900/30 border-l-4 border-purple-400 px-4 py-3">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-purple-400 font-semibold text-sm">📁</span>
+                      <span className="text-purple-300 font-medium text-sm">{subtitle.sourceFile}</span>
+                      <span className="text-purple-500 text-xs">
+                        ({subtitles.filter(sub => sub.sourceFile === subtitle.sourceFile).length} subtitles)
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <SubtitleItem
+                  subtitle={subtitle}
+                  showOriginal={showOriginal}
+                  showTimecodes={showTimecodes}
+                  maxTotalChars={maxTotalChars}
+                  maxLineChars={maxLineChars}
+                  minDurationSeconds={minDurationSeconds}
+                  maxDurationSeconds={maxDurationSeconds}
+                  onMergeNext={onMergeNext}
+                  {...itemProps}
+                />
+              </React.Fragment>
+            );
+          })}
         </div>
       </div>
     </div>
