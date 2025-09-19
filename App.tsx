@@ -4,7 +4,7 @@ import { parseSrt, formatSrt } from './services/srtParser';
 import { sessionManager } from './services/sessionManager';
 import { splitTextIntelligently, splitLineIntelligently } from './utils/textUtils';
 import { splitTimeProportionally, calculateDuration } from './utils/timeUtils';
-import { hasTimecodeConflict, parseTimecodeInput, reduceTimecodeByOneMs, calculateCascadePlan, applyCascadeFix, CascadePlan } from './utils/timecodeUtils';
+import { hasTimecodeConflict, parseTimecodeInput, reduceTimecodeByOneMs, timecodeToSeconds, secondsToTimecode, addSecondsToTimecode } from './utils/timecodeUtils';
 import Header from './components/Header';
 import FileUpload from './components/FileUpload';
 import SubtitleEditor from './components/SubtitleEditor';
@@ -28,8 +28,6 @@ const App: React.FC = () => {
   const [maxLineChars, setMaxLineChars] = useState<number>(MAX_LINE_CHARS);
   const [minDurationSeconds, setMinDurationSeconds] = useState<number>(1);
   const [maxDurationSeconds, setMaxDurationSeconds] = useState<number>(7);
-  const [cascadePreview, setCascadePreview] = useState<CascadePlan | null>(null);
-  const [showCascadePreview, setShowCascadePreview] = useState<boolean>(false);
 
   // Restore session on component mount
   useEffect(() => {
@@ -866,116 +864,6 @@ const App: React.FC = () => {
     setPreviousSubtitles(null);
   }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
 
-  const handleCascadePreview = useCallback(() => {
-    // Calculate current filtered subtitles based on current filter states
-    const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
-    
-    let currentFilteredSubtitles = translatedSubtitles;
-    if (hasActiveFilter) {
-      currentFilteredSubtitles = translatedSubtitles.filter(sub => {
-        const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
-        
-        if (showErrorsOnly && showLongLinesOnly) {
-          return sub.isLong || lineLengthExceeded;
-        }
-        if (showErrorsOnly) {
-          return sub.isLong;
-        }
-        if (showLongLinesOnly) {
-          return lineLengthExceeded;
-        }
-        if (showTooShortOnly) {
-          return sub.isTooShort;
-        }
-        if (showTooLongOnly) {
-          return sub.isTooLong;
-        }
-        if (showTimecodeConflictsOnly) {
-          return sub.hasTimecodeConflict;
-        }
-        return false; 
-      });
-    }
-    
-    // Calculate cascade plan for filtered subtitles
-    const plan = calculateCascadePlan(currentFilteredSubtitles, minDurationSeconds);
-    setCascadePreview(plan);
-    setShowCascadePreview(true);
-    
-    console.log(`🔍 Cascade preview calculated:`, plan);
-  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds]);
-
-  const handleApplyCascadeFix = useCallback(() => {
-    if (!cascadePreview || !cascadePreview.canBeFixed) {
-      console.log('❌ Cannot apply cascade fix - invalid plan');
-      return;
-    }
-    
-    setPreviousSubtitles(translatedSubtitles); // Save state for undo
-    setTranslatedSubtitles(prev => {
-      // Calculate current filtered subtitles based on current filter states
-      const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
-      
-      let currentFilteredSubtitles = prev;
-      if (hasActiveFilter) {
-        currentFilteredSubtitles = prev.filter(sub => {
-          const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
-          
-          if (showErrorsOnly && showLongLinesOnly) {
-            return sub.isLong || lineLengthExceeded;
-          }
-          if (showErrorsOnly) {
-            return sub.isLong;
-          }
-          if (showLongLinesOnly) {
-            return lineLengthExceeded;
-          }
-          if (showTooShortOnly) {
-            return sub.isTooShort;
-          }
-          if (showTooLongOnly) {
-            return sub.isTooLong;
-          }
-          if (showTimecodeConflictsOnly) {
-            return sub.hasTimecodeConflict;
-          }
-          return false; 
-        });
-      }
-      
-      try {
-        const fixedSubtitles = applyCascadeFix(currentFilteredSubtitles, minDurationSeconds);
-        
-        // Merge the fixed subtitles back into the full list
-        const result = [...prev];
-        fixedSubtitles.forEach(fixedSub => {
-          const index = result.findIndex(sub => sub.id === fixedSub.id);
-          if (index !== -1) {
-            result[index] = fixedSub;
-          }
-        });
-        
-        // Recalculate conflicts for all subtitles
-        const finalSubtitles = result.map(sub => {
-          const hasConflict = hasTimecodeConflict(sub, result);
-          return {
-            ...sub,
-            hasTimecodeConflict: hasConflict
-          };
-        });
-        
-        console.log(`✅ Cascade fix applied successfully to ${cascadePreview.totalAffected} segments`);
-        setShowCascadePreview(false);
-        setCascadePreview(null);
-        
-        return finalSubtitles;
-      } catch (error) {
-        console.error('❌ Error applying cascade fix:', error);
-        return prev;
-      }
-    });
-  }, [cascadePreview, translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds]);
-
   const handleFixTimecodeConflicts = useCallback(() => {
     setPreviousSubtitles(translatedSubtitles); // Save state for undo
     setTranslatedSubtitles(prev => {
@@ -1063,6 +951,95 @@ const App: React.FC = () => {
       return finalSubtitles;
     });
   }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
+
+  const handleFixTooShortSegments = useCallback(() => {
+    setPreviousSubtitles(translatedSubtitles); // Save state for undo
+    setTranslatedSubtitles(prev => {
+      // Calculate current filtered subtitles based on current filter states
+      const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
+      
+      let currentFilteredSubtitles = prev;
+      if (hasActiveFilter) {
+        currentFilteredSubtitles = prev.filter(sub => {
+          const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
+          
+          if (showErrorsOnly && showLongLinesOnly) {
+            return sub.isLong || lineLengthExceeded;
+          }
+          if (showErrorsOnly) {
+            return sub.isLong;
+          }
+          if (showLongLinesOnly) {
+            return lineLengthExceeded;
+          }
+          if (showTooShortOnly) {
+            return sub.isTooShort;
+          }
+          if (showTooLongOnly) {
+            return sub.isTooLong;
+          }
+          if (showTimecodeConflictsOnly) {
+            return sub.hasTimecodeConflict;
+          }
+          return false; 
+        });
+      }
+      
+      // Find all subtitles that are too short in the filtered view
+      const tooShortSubtitles = currentFilteredSubtitles.filter(sub => sub.isTooShort);
+      
+      if (tooShortSubtitles.length === 0) {
+        console.log('❌ No too short segments found in filtered view');
+        return prev;
+      }
+      
+      console.log(`🔧 Fixing too short segments for ${tooShortSubtitles.length} filtered subtitles`);
+      
+      // Process each too short subtitle
+      let newSubtitles = [...prev];
+      
+      // Sort by ID to process in order
+      const sortedTooShortIds = tooShortSubtitles.map(sub => sub.id).sort((a, b) => a - b);
+      
+      for (const subtitleId of sortedTooShortIds) {
+        const subtitleIndex = newSubtitles.findIndex(sub => sub.id === subtitleId);
+        if (subtitleIndex === -1) continue;
+        
+        const subtitle = newSubtitles[subtitleIndex];
+        
+        // Calculate new end time to make duration exactly minDurationSeconds
+        // Use precise timecode arithmetic to avoid floating-point precision issues
+        const newEndTime = addSecondsToTimecode(subtitle.startTime, minDurationSeconds);
+        
+        // Update the subtitle
+        newSubtitles[subtitleIndex] = {
+          ...subtitle,
+          endTime: newEndTime,
+          duration: minDurationSeconds,
+          isTooShort: false,
+          isTooLong: minDurationSeconds > maxDurationSeconds,
+          recentlyEdited: true,
+          editedAt: Date.now(),
+          canUndo: true,
+          previousText: subtitle.text
+        };
+      }
+      
+      // Recalculate conflicts after changes
+      const finalSubtitles = newSubtitles.map(sub => {
+        const hasConflict = hasTimecodeConflict(sub, newSubtitles);
+        return {
+          ...sub,
+          hasTimecodeConflict: hasConflict
+        };
+      });
+      
+      console.log(`📋 Too short segments fixed - extended to ${minDurationSeconds}s for ${tooShortSubtitles.length} subtitles`);
+      console.log(`📋 Fixed segments marked as 'recently edited' - will remain visible in current filter until manually changed`);
+      
+      return finalSubtitles;
+    });
+  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
   
   const hasTotalLengthErrors = useMemo(() => translatedSubtitles.some(sub => sub.isLong), [translatedSubtitles]);
   
@@ -1142,15 +1119,16 @@ const App: React.FC = () => {
   const hasTimecodeConflictsInFiltered = useMemo(() => 
     filteredSubtitles.some(sub => sub.hasTimecodeConflict), [filteredSubtitles]);
 
+  const hasTooShortSegmentsInFiltered = useMemo(() => 
+    filteredSubtitles.some(sub => sub.isTooShort), [filteredSubtitles]);
+
   const canUndo = previousSubtitles !== null;
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 font-sans flex flex-col">
       <Header 
         onDownload={handleDownload}
-        onDownloadAll={() => {}} // Not used in single-document mode
         hasTranslatedSubs={translatedSubtitles.length > 0}
-        hasMultipleDocuments={false} // Single-document mode
         onUndo={handleUndo}
         canUndo={canUndo}
         onClearSession={handleClearSession}
@@ -1278,11 +1256,8 @@ const App: React.FC = () => {
             onBulkSplitFiltered={handleBulkSplitFiltered}
             hasTimecodeConflictsInFiltered={hasTimecodeConflictsInFiltered}
             onFixTimecodeConflicts={handleFixTimecodeConflicts}
-            onCascadePreview={handleCascadePreview}
-            onApplyCascadeFix={handleApplyCascadeFix}
-            cascadePreview={cascadePreview}
-            showCascadePreview={showCascadePreview}
-            onCloseCascadePreview={() => setShowCascadePreview(false)}
+            hasTooShortSegmentsInFiltered={hasTooShortSegmentsInFiltered}
+            onFixTooShortSegments={handleFixTooShortSegments}
             onMergeNext={handleMergeSubtitleWithNext}
             onShowAll={handleShowAll}
             onUpdateSubtitle={handleUpdateSubtitle}
@@ -1294,86 +1269,6 @@ const App: React.FC = () => {
             minDurationSeconds={minDurationSeconds}
             maxDurationSeconds={maxDurationSeconds}
           />
-        )}
-        
-        {/* Cascade Preview Modal */}
-        {showCascadePreview && cascadePreview && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-semibold text-white">🔧 Smart Cascade Fix Preview</h3>
-                  <button
-                    onClick={() => setShowCascadePreview(false)}
-                    className="text-gray-400 hover:text-white transition-colors"
-                  >
-                    ✕
-                  </button>
-                </div>
-                
-                {cascadePreview.canBeFixed ? (
-                  <div className="space-y-4">
-                    <div className="bg-green-900/20 border border-green-500 rounded-lg p-4">
-                      <p className="text-green-400 font-medium">
-                        ✅ Can fix {cascadePreview.totalAffected} segments using cascade adjustment
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <h4 className="text-lg font-medium text-white">Planned Changes:</h4>
-                      {cascadePreview.steps.map((step, index) => (
-                        <div key={index} className="bg-gray-700 rounded-lg p-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-white font-medium">Segment #{step.subtitleId}</span>
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              step.action === 'extend' ? 'bg-green-600 text-white' :
-                              step.action === 'shorten' ? 'bg-yellow-600 text-white' :
-                              'bg-blue-600 text-white'
-                            }`}>
-                              {step.action === 'extend' ? 'Extend' : 
-                               step.action === 'shorten' ? 'Shorten' : 'Move'} 
-                              {step.timeChange.toFixed(3)}s
-                            </span>
-                          </div>
-                          <p className="text-gray-300 text-sm mt-1">{step.reason}</p>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    <div className="flex gap-3 pt-4">
-                      <button
-                        onClick={handleApplyCascadeFix}
-                        className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors font-medium"
-                      >
-                        ✅ Apply Cascade Fix
-                      </button>
-                      <button
-                        onClick={() => setShowCascadePreview(false)}
-                        className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors font-medium"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-red-900/20 border border-red-500 rounded-lg p-4">
-                    <p className="text-red-400 font-medium">
-                      ❌ Cannot fix automatically: {cascadePreview.reason}
-                    </p>
-                    <p className="text-gray-300 text-sm mt-2">
-                      You may need to manually adjust timecodes or use the simple "Fix Conflicts" button.
-                    </p>
-                    <button
-                      onClick={() => setShowCascadePreview(false)}
-                      className="mt-4 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors font-medium"
-                    >
-                      Close
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         )}
       </main>
     </div>
