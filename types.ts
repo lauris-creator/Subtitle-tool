@@ -17,12 +17,14 @@ export interface Subtitle {
   previousStartTime?: string; // For timecode undo
   previousEndTime?: string; // For timecode undo
   canUndo?: boolean;
+  sourceFile?: string; // Multi-file support: which file this subtitle came from
 }
 
 export interface SessionData {
   translatedSubtitles: Subtitle[];
   originalSubtitles: Subtitle[];
   fileName: string;
+  availableFiles: string[]; // Multi-file support
   maxTotalChars: number;
   maxLineChars: number;
   minDurationSeconds: number;

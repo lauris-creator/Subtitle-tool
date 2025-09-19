@@ -4,7 +4,7 @@ import { MAX_TOTAL_CHARS } from '../constants';
 import { calculateDuration } from '../utils/timeUtils';
 import { hasTimecodeConflict } from '../utils/timecodeUtils';
 
-export const parseSrt = (srtContent: string): Subtitle[] => {
+export const parseSrt = (srtContent: string, sourceFile?: string): Subtitle[] => {
   const subtitles: Subtitle[] = [];
   const blocks = srtContent.trim().split(/\r?\n\r?\n/);
 
@@ -41,7 +41,8 @@ export const parseSrt = (srtContent: string): Subtitle[] => {
       duration,
       isTooShort,
       isTooLong,
-      hasTimecodeConflict: false // Will be calculated later when all subtitles are available
+      hasTimecodeConflict: false, // Will be calculated later when all subtitles are available
+      sourceFile // Multi-file support: track which file this subtitle came from
     };
 
     subtitles.push(subtitle);

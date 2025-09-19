@@ -5,6 +5,7 @@ import { EyeIcon, EyeOffIcon, ClockIcon, NoClockIcon, FilterIcon, LineLengthIcon
 
 interface SubtitleEditorProps {
   subtitles: Subtitle[];
+  allSubtitles?: Subtitle[]; // Complete list for calculating original file positions
   showOriginal: boolean;
   setShowOriginal: (show: boolean) => void;
   showTimecodes: boolean;
@@ -51,8 +52,9 @@ interface SubtitleEditorProps {
 const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
   const { 
     subtitles, 
+    allSubtitles,
     showOriginal, 
-    setShowOriginal, 
+    setShowOriginal,
     showTimecodes, 
     setShowTimecodes, 
     hasTotalLengthErrors,
@@ -238,20 +240,46 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
       </div>
       <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
         <div className="divide-y divide-gray-700">
-          {subtitles.map((subtitle) => (
-            <SubtitleItem
-              key={subtitle.id}
-              subtitle={subtitle}
-              showOriginal={showOriginal}
-              showTimecodes={showTimecodes}
-              maxTotalChars={maxTotalChars}
-              maxLineChars={maxLineChars}
-              minDurationSeconds={minDurationSeconds}
-              maxDurationSeconds={maxDurationSeconds}
-              onMergeNext={onMergeNext}
-              {...itemProps}
-            />
-          ))}
+          {subtitles.map((subtitle, index) => {
+            const isNewFile = index === 0 || subtitle.sourceFile !== subtitles[index - 1].sourceFile;
+            
+            // Calculate per-file ID using the complete subtitle list (not filtered)
+            let fileSpecificId = 1;
+            if (subtitle.sourceFile && allSubtitles) {
+              // Find the position of this subtitle in the complete list of all subtitles from the same file
+              const allFromSameFile = allSubtitles.filter(sub => sub.sourceFile === subtitle.sourceFile);
+              const positionInFile = allFromSameFile.findIndex(sub => sub.id === subtitle.id);
+              fileSpecificId = positionInFile + 1; // Convert 0-based index to 1-based ID
+            }
+            
+            return (
+              <React.Fragment key={subtitle.id}>
+                {isNewFile && subtitle.sourceFile && (
+                  <div className="bg-purple-900/30 border-l-4 border-purple-400 px-4 py-3">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-purple-400 font-semibold text-sm">📁</span>
+                      <span className="text-purple-300 font-medium text-sm">{subtitle.sourceFile}</span>
+                      <span className="text-purple-500 text-xs">
+                        ({allSubtitles ? allSubtitles.filter(sub => sub.sourceFile === subtitle.sourceFile).length : subtitles.filter(sub => sub.sourceFile === subtitle.sourceFile).length} subtitles)
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <SubtitleItem
+                  subtitle={subtitle}
+                  fileSpecificId={fileSpecificId}
+                  showOriginal={showOriginal}
+                  showTimecodes={showTimecodes}
+                  maxTotalChars={maxTotalChars}
+                  maxLineChars={maxLineChars}
+                  minDurationSeconds={minDurationSeconds}
+                  maxDurationSeconds={maxDurationSeconds}
+                  onMergeNext={onMergeNext}
+                  {...itemProps}
+                />
+              </React.Fragment>
+            );
+          })}
         </div>
       </div>
     </div>

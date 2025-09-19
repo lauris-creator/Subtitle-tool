@@ -12,6 +12,10 @@ interface HeaderProps {
   maxLineChars: number;
   minDurationSeconds: number;
   maxDurationSeconds: number;
+  // Multi-file support
+  availableFiles: string[];
+  currentFileFilter: string | null;
+  onFileFilterChange: (fileName: string | null) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -23,7 +27,10 @@ const Header: React.FC<HeaderProps> = ({
   maxTotalChars,
   maxLineChars,
   minDurationSeconds,
-  maxDurationSeconds
+  maxDurationSeconds,
+  availableFiles,
+  currentFileFilter,
+  onFileFilterChange
 }) => {
   return (
     <header className="bg-gray-800 shadow-md sticky top-0 z-10">
@@ -109,15 +116,37 @@ const Header: React.FC<HeaderProps> = ({
                 Undo
               </button>
             )}
+            {hasTranslatedSubs && availableFiles.length > 1 && (
+              <div className="relative">
+                <select
+                  value={currentFileFilter || 'all'}
+                  onChange={(e) => onFileFilterChange(e.target.value === 'all' ? null : e.target.value)}
+                  className="appearance-none bg-gray-700 border border-gray-600 text-white px-3 py-2 pr-8 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                  title="Filter by file"
+                >
+                  <option value="all">All Files ({availableFiles.length})</option>
+                  {availableFiles.map((fileName, index) => (
+                    <option key={index} value={fileName}>
+                      {fileName}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            )}
             {hasTranslatedSubs && (
               <div className="flex items-center space-x-2">
                 <button
                   onClick={onDownload}
                   className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors"
-                  title="Download current document"
+                  title={availableFiles.length > 1 ? "Download all files as ZIP" : "Download current document"}
                 >
                   <DownloadIcon className="h-5 w-5 mr-2" />
-                  Download Current
+                  {availableFiles.length > 1 ? `Download All (${availableFiles.length})` : 'Download Current'}
                 </button>
               </div>
             )}

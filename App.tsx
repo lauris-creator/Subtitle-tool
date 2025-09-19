@@ -28,6 +28,10 @@ const App: React.FC = () => {
   const [maxLineChars, setMaxLineChars] = useState<number>(MAX_LINE_CHARS);
   const [minDurationSeconds, setMinDurationSeconds] = useState<number>(1);
   const [maxDurationSeconds, setMaxDurationSeconds] = useState<number>(7);
+  
+  // Multi-file support
+  const [availableFiles, setAvailableFiles] = useState<string[]>([]);
+  const [currentFileFilter, setCurrentFileFilter] = useState<string | null>(null);
 
   // Restore session on component mount
   useEffect(() => {
@@ -36,6 +40,7 @@ const App: React.FC = () => {
       setOriginalSubtitles(savedSession.originalSubtitles);
       setTranslatedSubtitles(savedSession.translatedSubtitles);
       setFileName(savedSession.fileName);
+      setAvailableFiles(savedSession.availableFiles || []); // Restore available files
       setSessionRestored(true);
       
       const sessionAge = sessionManager.getSessionAge();
@@ -50,13 +55,14 @@ const App: React.FC = () => {
         originalSubtitles,
         translatedSubtitles,
         fileName,
+        availableFiles,
         maxTotalChars,
         maxLineChars,
         minDurationSeconds,
         maxDurationSeconds
       });
     }
-  }, [originalSubtitles, translatedSubtitles, fileName, sessionRestored, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
+  }, [originalSubtitles, translatedSubtitles, fileName, availableFiles, sessionRestored, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
 
   // Clear "recently edited" status when filters change (not after timeout)
   useEffect(() => {
@@ -69,7 +75,7 @@ const App: React.FC = () => {
   }, [showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly]); // Clear when filters change
 
   const handleFileUpload = (content: string, type: 'original' | 'translated', name: string) => {
-    const subs = parseSrt(content);
+    const subs = parseSrt(content, name);
     setPreviousSubtitles(null); // Clear undo history on new file upload
     if (type === 'translated') {
       // Apply current character limits and duration validation to parsed subtitles
@@ -92,6 +98,8 @@ const App: React.FC = () => {
       });
       setTranslatedSubtitles(processedSubs);
       setFileName(name);
+      // Add file to available files list
+      setAvailableFiles(prev => prev.includes(name) ? prev : [...prev, name]);
       // If original is already loaded, merge them
       if (originalSubtitles.length > 0) {
         setTranslatedSubtitles(prevSubs => prevSubs.map((sub, index) => ({
@@ -108,6 +116,62 @@ const App: React.FC = () => {
           originalText: subs[index]?.text || '',
         })));
       }
+    }
+  };
+
+  const handleMultiFileUpload = (files: Array<{content: string, name: string}>, type: 'original' | 'translated') => {
+    console.log(`📁 Multi-file upload: ${files.length} files`);
+    
+    // Parse all files and concatenate them
+    let allSubtitles: Subtitle[] = [];
+    let fileNames: string[] = [];
+    
+    files.forEach((file, fileIndex) => {
+      const subs = parseSrt(file.content, file.name);
+      fileNames.push(file.name);
+      
+      // Renumber IDs to be sequential across all files
+      const renumberedSubs = subs.map((sub, subIndex) => ({
+        ...sub,
+        id: allSubtitles.length + subIndex + 1
+      }));
+      
+      allSubtitles = [...allSubtitles, ...renumberedSubs];
+    });
+    
+    // Recalculate conflicts for all subtitles
+    allSubtitles = allSubtitles.map(sub => ({
+      ...sub,
+      hasTimecodeConflict: hasTimecodeConflict(sub, allSubtitles)
+    }));
+    
+    setPreviousSubtitles(null); // Clear undo history on new file upload
+    
+    if (type === 'translated') {
+      // Apply current character limits and duration validation to parsed subtitles
+      const processedSubs = allSubtitles.map(sub => {
+        const charCount = sub.text.replace(/\n/g, '').length;
+        const isLong = charCount > maxTotalChars;
+        const duration = calculateDuration(sub.startTime, sub.endTime);
+        const isTooShort = duration < minDurationSeconds;
+        const isTooLong = duration > maxDurationSeconds;
+        return {
+          ...sub,
+          charCount,
+          isLong,
+          duration,
+          isTooShort,
+          isTooLong
+        };
+      });
+      
+      setTranslatedSubtitles(processedSubs);
+      setFileName(files.length === 1 ? files[0].name : `${files.length} files`);
+      setAvailableFiles(fileNames);
+      
+      console.log(`📁 Concatenated ${allSubtitles.length} subtitles from ${files.length} files`);
+    } else {
+      setOriginalSubtitles(allSubtitles);
     }
   };
 
@@ -473,20 +537,143 @@ const App: React.FC = () => {
     });
   }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (translatedSubtitles.length === 0) return;
-    const srtContent = formatSrt(translatedSubtitles);
-    // Add UTF-8 BOM for better compatibility with subtitle players
-    const contentWithBOM = '\uFEFF' + srtContent;
-    const blob = new Blob([contentWithBOM], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `edited_${fileName || 'subtitles.srt'}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    
+    // If multiple files are loaded, download individual files
+    if (availableFiles.length > 1) {
+      console.log(`📦 Downloading ${availableFiles.length} individual files`);
+      
+      // Group subtitles by source file
+      const subtitlesByFile = new Map<string, Subtitle[]>();
+      translatedSubtitles.forEach(sub => {
+        if (sub.sourceFile) {
+          if (!subtitlesByFile.has(sub.sourceFile)) {
+            subtitlesByFile.set(sub.sourceFile, []);
+          }
+          subtitlesByFile.get(sub.sourceFile)!.push(sub);
+        }
+      });
+      
+      // Create individual SRT files
+      const files: Array<{name: string, content: string}> = [];
+      subtitlesByFile.forEach((subs, fileName) => {
+        // Renumber IDs for each file (1, 2, 3...)
+        const renumberedSubs = subs.map((sub, index) => ({
+          ...sub,
+          id: index + 1
+        }));
+        
+        const srtContent = formatSrt(renumberedSubs);
+        const contentWithBOM = '\uFEFF' + srtContent;
+        const editedFileName = fileName.replace('.srt', '_edited.srt');
+        
+        files.push({
+          name: editedFileName,
+          content: contentWithBOM
+        });
+      });
+      
+      // Create ZIP file
+      try {
+        const JSZip = (await import('jszip')).default;
+        const zip = new JSZip();
+        
+        files.forEach(file => {
+          zip.file(file.name, file.content);
+        });
+        
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `edited_subtitles_${files.length}_files.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        console.log(`📦 Downloaded ZIP with ${files.length} individual files`);
+      } catch (error) {
+        console.error('Error creating ZIP:', error);
+        alert('Error creating ZIP file. Please try downloading individual files.');
+      }
+    } else {
+      // Single file - download as before
+      const srtContent = formatSrt(translatedSubtitles);
+      const contentWithBOM = '\uFEFF' + srtContent;
+      const blob = new Blob([contentWithBOM], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `edited_${fileName || 'subtitles.srt'}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    if (translatedSubtitles.length === 0 || availableFiles.length === 0) return;
+    
+    console.log(`📦 Creating ZIP with ${availableFiles.length} files`);
+    
+    // Group subtitles by source file
+    const subtitlesByFile = new Map<string, Subtitle[]>();
+    translatedSubtitles.forEach(sub => {
+      if (sub.sourceFile) {
+        if (!subtitlesByFile.has(sub.sourceFile)) {
+          subtitlesByFile.set(sub.sourceFile, []);
+        }
+        subtitlesByFile.get(sub.sourceFile)!.push(sub);
+      }
+    });
+    
+    // Create individual SRT files
+    const files: Array<{name: string, content: string}> = [];
+    subtitlesByFile.forEach((subs, fileName) => {
+      // Renumber IDs for each file
+      const renumberedSubs = subs.map((sub, index) => ({
+        ...sub,
+        id: index + 1
+      }));
+      
+      const srtContent = formatSrt(renumberedSubs);
+      const contentWithBOM = '\uFEFF' + srtContent;
+      const editedFileName = fileName.replace('.srt', '_edited.srt');
+      
+      files.push({
+        name: editedFileName,
+        content: contentWithBOM
+      });
+    });
+    
+    // Create ZIP file
+    try {
+      // Import JSZip dynamically
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      
+      files.forEach(file => {
+        zip.file(file.name, file.content);
+      });
+      
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `edited_subtitles_${files.length}_files.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      console.log(`📦 Downloaded ZIP with ${files.length} files`);
+    } catch (error) {
+      console.error('Error creating ZIP:', error);
+      alert('Error creating ZIP file. Please try downloading individual files.');
+    }
   };
 
   const handleSplitFilteredLines = useCallback(() => {
@@ -580,6 +767,8 @@ const App: React.FC = () => {
       setTranslatedSubtitles([]);
       setPreviousSubtitles(null);
       setFileName('');
+      setAvailableFiles([]); // Clear available files
+      setCurrentFileFilter(null); // Clear file filter
       setSessionRestored(false);
       console.log('🗑️ Session cleared. Starting fresh!');
     }
@@ -591,6 +780,11 @@ const App: React.FC = () => {
     setShowTooShortOnly(false);
     setShowTooLongOnly(false);
     setShowTimecodeConflictsOnly(false);
+  };
+
+  const handleFileFilterChange = (fileName: string | null) => {
+    setCurrentFileFilter(fileName);
+    console.log(`📁 File filter changed to: ${fileName || 'All Files'}`);
   };
 
   const handleRemoveBreaksFromFiltered = useCallback(() => {
@@ -1257,9 +1451,12 @@ const App: React.FC = () => {
 
   const filteredSubtitles = useMemo(() => {
     const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
+    const hasFileFilter = currentFileFilter !== null;
 
     console.log('🔍 Filter Debug:', {
       hasActiveFilter,
+      hasFileFilter,
+      currentFileFilter,
       translatedSubtitlesLength: translatedSubtitles.length,
       showErrorsOnly,
       showLongLinesOnly,
@@ -1268,11 +1465,19 @@ const App: React.FC = () => {
       showTimecodeConflictsOnly
     });
 
-    if (!hasActiveFilter) {
-      return translatedSubtitles;
+    // First apply file filter if active
+    let fileFilteredSubtitles = translatedSubtitles;
+    if (hasFileFilter) {
+      fileFilteredSubtitles = translatedSubtitles.filter(sub => sub.sourceFile === currentFileFilter);
+      console.log(`📁 File filter applied: ${fileFilteredSubtitles.length} subtitles from ${currentFileFilter}`);
     }
 
-    return translatedSubtitles.filter(sub => {
+    // Then apply content filters if active
+    if (!hasActiveFilter) {
+      return fileFilteredSubtitles;
+    }
+
+    return fileFilteredSubtitles.filter(sub => {
       const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
       
       // Always show recently edited items (sticky behavior)
@@ -1300,7 +1505,7 @@ const App: React.FC = () => {
       }
       return false; 
     });
-  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxLineChars]);
+  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxLineChars, currentFileFilter]);
 
   const hasMultiLineInFiltered = useMemo(() => 
     filteredSubtitles.some(sub => sub.text.includes('\n')), [filteredSubtitles]);
@@ -1350,6 +1555,9 @@ const App: React.FC = () => {
         maxLineChars={maxLineChars}
         minDurationSeconds={minDurationSeconds}
         maxDurationSeconds={maxDurationSeconds}
+        availableFiles={availableFiles}
+        currentFileFilter={currentFileFilter}
+        onFileFilterChange={handleFileFilterChange}
       />
 
       <main className="flex-grow container mx-auto p-4 md:p-8">
@@ -1436,13 +1644,24 @@ const App: React.FC = () => {
             </div>
             
             <div className="flex flex-col md:flex-row gap-8 justify-center">
-              <FileUpload label="Upload Translated SRT" onFileUpload={(c, n) => handleFileUpload(c, 'translated', n)} />
-              <FileUpload label="Upload Original SRT (Optional)" onFileUpload={(c, n) => handleFileUpload(c, 'original', n)} />
+              <FileUpload 
+                label="Upload Translated SRT" 
+                onFileUpload={(c, n) => handleFileUpload(c, 'translated', n)} 
+                onMultiFileUpload={(files) => handleMultiFileUpload(files, 'translated')}
+                multiple={true}
+              />
+              <FileUpload 
+                label="Upload Original SRT (Optional)" 
+                onFileUpload={(c, n) => handleFileUpload(c, 'original', n)} 
+                onMultiFileUpload={(files) => handleMultiFileUpload(files, 'original')}
+                multiple={true}
+              />
             </div>
           </div>
         ) : (
           <SubtitleEditor 
             subtitles={filteredSubtitles}
+            allSubtitles={translatedSubtitles}
             showOriginal={showOriginal && originalSubtitles.length > 0}
             setShowOriginal={setShowOriginal}
             showTimecodes={showTimecodes}

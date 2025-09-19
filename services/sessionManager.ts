@@ -1,4 +1,4 @@
-import { Document, SessionData } from '../types';
+import { SessionData } from '../types';
 
 const SESSION_KEY = 'srt-editor-session';
 
@@ -22,10 +22,9 @@ export const sessionManager = {
       
       // Check if session is older than 24 hours (optional expiry)
       const oneDay = 24 * 60 * 60 * 1000;
-      const oldestDocument = data.documents.reduce((oldest, doc) => 
-        Math.max(oldest, doc.lastModified), 0);
+      const sessionAge = Date.now() - (data.translatedSubtitles[0]?.editedAt || Date.now());
       
-      if (Date.now() - oldestDocument > oneDay) {
+      if (sessionAge > oneDay) {
         sessionManager.clearSession();
         return null;
       }
@@ -54,10 +53,10 @@ export const sessionManager = {
   // Get session age in minutes
   getSessionAge: (): number | null => {
     const session = sessionManager.loadSession();
-    if (!session || session.documents.length === 0) return null;
+    if (!session || session.translatedSubtitles.length === 0) return null;
     
-    const oldestDocument = session.documents.reduce((oldest, doc) => 
-      Math.max(oldest, doc.lastModified), 0);
-    return Math.floor((Date.now() - oldestDocument) / 1000 / 60);
+    const oldestEdit = session.translatedSubtitles.reduce((oldest, sub) => 
+      Math.max(oldest, sub.editedAt || 0), 0);
+    return Math.floor((Date.now() - oldestEdit) / 1000 / 60);
   }
 };
