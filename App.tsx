@@ -135,6 +135,7 @@ const App: React.FC = () => {
   }, [maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds, translatedSubtitles.length]);
 
   const handleUpdateTimecode = useCallback((id: number, newStartTime: string, newEndTime: string) => {
+    setPreviousSubtitles(translatedSubtitles); // Save state for undo
     setTranslatedSubtitles(prev => {
       const now = Date.now();
       return prev.map(sub => {
@@ -188,7 +189,7 @@ const App: React.FC = () => {
           canUndo: true
         } : sub)
     });
-    setPreviousSubtitles(null); // Manual edit clears global undo
+    setPreviousSubtitles(translatedSubtitles); // Save state for undo
   }, [maxTotalChars, minDurationSeconds, maxDurationSeconds]);
 
   const handleMergeSubtitleWithNext = useCallback((id: number) => {
@@ -377,6 +378,7 @@ const App: React.FC = () => {
     if (previousSubtitles) {
       setTranslatedSubtitles(previousSubtitles);
       setPreviousSubtitles(null);
+      console.log("↩️ Global undo: Restored previous state");
     }
   };
 
