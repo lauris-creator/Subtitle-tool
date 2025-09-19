@@ -117,6 +117,62 @@ const App: React.FC = () => {
     }
   };
 
+  const handleMultiFileUpload = (files: Array<{content: string, name: string}>, type: 'original' | 'translated') => {
+    console.log(`📁 Multi-file upload: ${files.length} files`);
+    
+    // Parse all files and concatenate them
+    let allSubtitles: Subtitle[] = [];
+    let fileNames: string[] = [];
+    
+    files.forEach((file, fileIndex) => {
+      const subs = parseSrt(file.content, file.name);
+      fileNames.push(file.name);
+      
+      // Renumber IDs to be sequential across all files
+      const renumberedSubs = subs.map((sub, subIndex) => ({
+        ...sub,
+        id: allSubtitles.length + subIndex + 1
+      }));
+      
+      allSubtitles = [...allSubtitles, ...renumberedSubs];
+    });
+    
+    // Recalculate conflicts for all subtitles
+    allSubtitles = allSubtitles.map(sub => ({
+      ...sub,
+      hasTimecodeConflict: hasTimecodeConflict(sub, allSubtitles)
+    }));
+    
+    setPreviousSubtitles(null); // Clear undo history on new file upload
+    
+    if (type === 'translated') {
+      // Apply current character limits and duration validation to parsed subtitles
+      const processedSubs = allSubtitles.map(sub => {
+        const charCount = sub.text.replace(/\n/g, '').length;
+        const isLong = charCount > maxTotalChars;
+        const duration = calculateDuration(sub.startTime, sub.endTime);
+        const isTooShort = duration < minDurationSeconds;
+        const isTooLong = duration > maxDurationSeconds;
+        return {
+          ...sub,
+          charCount,
+          isLong,
+          duration,
+          isTooShort,
+          isTooLong
+        };
+      });
+      
+      setTranslatedSubtitles(processedSubs);
+      setFileName(files.length === 1 ? files[0].name : `${files.length} files`);
+      setAvailableFiles(fileNames);
+      
+      console.log(`📁 Concatenated ${allSubtitles.length} subtitles from ${files.length} files`);
+    } else {
+      setOriginalSubtitles(allSubtitles);
+    }
+  };
+
   // Recalculate subtitle validation when limits change
   useEffect(() => {
     if (translatedSubtitles.length > 0) {
@@ -1268,9 +1324,12 @@ const App: React.FC = () => {
 
   const filteredSubtitles = useMemo(() => {
     const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
+    const hasFileFilter = currentFileFilter !== null;
 
     console.log('🔍 Filter Debug:', {
       hasActiveFilter,
+      hasFileFilter,
+      currentFileFilter,
       translatedSubtitlesLength: translatedSubtitles.length,
       showErrorsOnly,
       showLongLinesOnly,
@@ -1279,11 +1338,19 @@ const App: React.FC = () => {
       showTimecodeConflictsOnly
     });
 
-    if (!hasActiveFilter) {
-      return translatedSubtitles;
+    // First apply file filter if active
+    let fileFilteredSubtitles = translatedSubtitles;
+    if (hasFileFilter) {
+      fileFilteredSubtitles = translatedSubtitles.filter(sub => sub.sourceFile === currentFileFilter);
+      console.log(`📁 File filter applied: ${fileFilteredSubtitles.length} subtitles from ${currentFileFilter}`);
     }
 
-    return translatedSubtitles.filter(sub => {
+    // Then apply content filters if active
+    if (!hasActiveFilter) {
+      return fileFilteredSubtitles;
+    }
+
+    return fileFilteredSubtitles.filter(sub => {
       const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
       
       // Always show recently edited items (sticky behavior)
@@ -1311,7 +1378,7 @@ const App: React.FC = () => {
       }
       return false; 
     });
-  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxLineChars]);
+  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxLineChars, currentFileFilter]);
 
   const hasMultiLineInFiltered = useMemo(() => 
     filteredSubtitles.some(sub => sub.text.includes('\n')), [filteredSubtitles]);
@@ -1450,8 +1517,16 @@ const App: React.FC = () => {
             </div>
             
             <div className="flex flex-col md:flex-row gap-8 justify-center">
-              <FileUpload label="Upload Translated SRT" onFileUpload={(c, n) => handleFileUpload(c, 'translated', n)} />
-              <FileUpload label="Upload Original SRT (Optional)" onFileUpload={(c, n) => handleFileUpload(c, 'original', n)} />
+              <FileUpload 
+                label="Upload Translated SRT" 
+                onFileUpload={(c, n) => handleFileUpload(c, 'translated', n)} 
+                multiple={true}
+              />
+              <FileUpload 
+                label="Upload Original SRT (Optional)" 
+                onFileUpload={(c, n) => handleFileUpload(c, 'original', n)} 
+                multiple={true}
+              />
             </div>
           </div>
         ) : (
