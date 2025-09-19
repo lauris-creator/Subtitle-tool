@@ -68,11 +68,13 @@ export function timecodesOverlap(
 }
 
 /**
- * Check if a subtitle has timecode conflicts with other subtitles
+ * Check if a subtitle has timecode conflicts with other subtitles from the same file
  */
 export function hasTimecodeConflict(subtitle: Subtitle, allSubtitles: Subtitle[]): boolean {
   return allSubtitles.some(other => 
     other.id !== subtitle.id && 
+    // Only check within the same file (if sourceFile exists) or all subtitles (single file)
+    (subtitle.sourceFile ? other.sourceFile === subtitle.sourceFile : true) &&
     timecodesOverlap(subtitle.startTime, subtitle.endTime, other.startTime, other.endTime)
   );
 }
