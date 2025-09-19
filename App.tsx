@@ -282,6 +282,197 @@ const App: React.FC = () => {
     setPreviousSubtitles(null);
   }, [maxTotalChars, minDurationSeconds, maxDurationSeconds]);
 
+  const handleBulkMergeFiltered = useCallback(() => {
+    setPreviousSubtitles(translatedSubtitles); // Save state for undo
+    setTranslatedSubtitles(prev => {
+      // Calculate current filtered subtitles based on current filter states
+      const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
+      
+      let currentFilteredSubtitles = prev;
+      if (hasActiveFilter) {
+        currentFilteredSubtitles = prev.filter(sub => {
+          const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
+          
+          if (showErrorsOnly && showLongLinesOnly) {
+            return sub.isLong || lineLengthExceeded;
+          }
+          if (showErrorsOnly) {
+            return sub.isLong;
+          }
+          if (showLongLinesOnly) {
+            return lineLengthExceeded;
+          }
+          if (showTooShortOnly) {
+            return sub.isTooShort;
+          }
+          if (showTooLongOnly) {
+            return sub.isTooLong;
+          }
+          if (showTimecodeConflictsOnly) {
+            return sub.hasTimecodeConflict;
+          }
+          return false; 
+        });
+      }
+      
+      if (currentFilteredSubtitles.length < 2) {
+        console.log('🔗 Bulk merge: Need at least 2 filtered segments');
+        return prev;
+      }
+      
+      // Get the IDs of filtered subtitles in order
+      const filteredIds = currentFilteredSubtitles.map(sub => sub.id).sort((a, b) => a - b);
+      console.log(`🔗 Bulk merge: Processing ${filteredIds.length} filtered segments: ${filteredIds.join(', ')}`);
+      
+      // Group consecutive IDs into pairs: [1,2], [5,6], [14,15], etc.
+      const mergePairs: Array<[number, number]> = [];
+      for (let i = 0; i < filteredIds.length - 1; i += 2) {
+        const currentId = filteredIds[i];
+        const nextId = filteredIds[i + 1];
+        
+        // Check if they are consecutive
+        if (nextId === currentId + 1) {
+          mergePairs.push([currentId, nextId]);
+        }
+      }
+      
+      if (mergePairs.length === 0) {
+        console.log('🔗 Bulk merge: No consecutive pairs found in filtered segments');
+        return prev;
+      }
+      
+      console.log(`🔗 Bulk merge: Found ${mergePairs.length} consecutive pairs to merge:`, mergePairs);
+      
+      // Start with a copy of the original subtitles
+      let newSubtitles = [...prev];
+      
+      // Process merge pairs from highest IDs to lowest to avoid index shifting issues
+      mergePairs.reverse().forEach(([firstId, secondId]) => {
+        const firstIndex = newSubtitles.findIndex(s => s.id === firstId);
+        const secondIndex = newSubtitles.findIndex(s => s.id === secondId);
+        
+        if (firstIndex === -1 || secondIndex === -1) return;
+        
+        const first = newSubtitles[firstIndex];
+        const second = newSubtitles[secondIndex];
+        
+        // Merge the subtitles
+        const mergedText = `${first.text} ${second.text}`.replace(/\s+/g, ' ').replace(/\s*\n\s*/g, ' ').trim();
+        const mergedStart = first.startTime;
+        const mergedEnd = second.endTime;
+        
+        const charCount = mergedText.replace(/\n/g, '').length;
+        const duration = calculateDuration(mergedStart, mergedEnd);
+        
+        const merged: Subtitle = {
+          ...first,
+          text: mergedText,
+          startTime: mergedStart,
+          endTime: mergedEnd,
+          charCount,
+          isLong: charCount > maxTotalChars,
+          duration,
+          isTooShort: duration < minDurationSeconds,
+          isTooLong: duration > maxDurationSeconds,
+          recentlyEdited: true,
+          editedAt: Date.now(),
+          canUndo: false,
+          previousText: undefined
+        };
+        
+        // Replace first with merged, remove second
+        newSubtitles = [
+          ...newSubtitles.slice(0, firstIndex),
+          merged,
+          ...newSubtitles.slice(firstIndex + 1, secondIndex),
+          ...newSubtitles.slice(secondIndex + 1)
+        ];
+      });
+      
+      // Renumber all subtitles and recompute conflicts
+      const renumbered = newSubtitles.map((sub, i) => ({ ...sub, id: i + 1 }));
+      const recomputed = renumbered.map(s => ({
+        ...s,
+        hasTimecodeConflict: hasTimecodeConflict(s, renumbered)
+      }));
+      
+      console.log(`🔗 Bulk merge: Completed ${mergePairs.length} merges`);
+      return recomputed;
+    });
+    
+    // Merge originals if present
+    setOriginalSubtitles(prev => {
+      if (prev.length === 0) return prev;
+      
+      // Apply the same merge logic to originals
+      const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly;
+      
+      let currentFilteredOriginals = prev;
+      if (hasActiveFilter) {
+        currentFilteredOriginals = prev.filter(sub => {
+          const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
+          
+          if (showErrorsOnly && showLongLinesOnly) {
+            return sub.isLong || lineLengthExceeded;
+          }
+          if (showErrorsOnly) {
+            return sub.isLong;
+          }
+          if (showLongLinesOnly) {
+            return lineLengthExceeded;
+          }
+          if (showTooShortOnly) {
+            return sub.isTooShort;
+          }
+          if (showTooLongOnly) {
+            return sub.isTooLong;
+          }
+          if (showTimecodeConflictsOnly) {
+            return sub.hasTimecodeConflict;
+          }
+          return false; 
+        });
+      }
+      
+      if (currentFilteredOriginals.length < 2) return prev;
+      
+      const filteredIds = currentFilteredOriginals.map(sub => sub.id).sort((a, b) => a - b);
+      const mergePairs: Array<[number, number]> = [];
+      for (let i = 0; i < filteredIds.length - 1; i += 2) {
+        const currentId = filteredIds[i];
+        const nextId = filteredIds[i + 1];
+        if (nextId === currentId + 1) {
+          mergePairs.push([currentId, nextId]);
+        }
+      }
+      
+      if (mergePairs.length === 0) return prev;
+      
+      let newOriginals = [...prev];
+      mergePairs.reverse().forEach(([firstId, secondId]) => {
+        const firstIndex = newOriginals.findIndex(s => s.id === firstId);
+        const secondIndex = newOriginals.findIndex(s => s.id === secondId);
+        
+        if (firstIndex === -1 || secondIndex === -1) return;
+        
+        const first = newOriginals[firstIndex];
+        const second = newOriginals[secondIndex];
+        
+        const mergedText = `${first.text} ${second.text}`.replace(/\s+/g, ' ').replace(/\s*\n\s*/g, ' ').trim();
+        const merged = { ...first, text: mergedText, endTime: second.endTime };
+        
+        newOriginals = [
+          ...newOriginals.slice(0, firstIndex),
+          merged,
+          ...newOriginals.slice(firstIndex + 1, secondIndex),
+          ...newOriginals.slice(secondIndex + 1)
+        ];
+      });
+      
+      return newOriginals.map((sub, index) => ({ ...sub, id: index + 1 }));
+    });
+  }, [translatedSubtitles, showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
+
   const handleDownload = () => {
     if (translatedSubtitles.length === 0) return;
     const srtContent = formatSrt(translatedSubtitles);
@@ -1129,6 +1320,22 @@ const App: React.FC = () => {
   const hasTooShortSegmentsInFiltered = useMemo(() => 
     filteredSubtitles.some(sub => sub.isTooShort), [filteredSubtitles]);
 
+  const hasConsecutivePairsInFiltered = useMemo(() => {
+    if (filteredSubtitles.length < 2) return false;
+    
+    const filteredIds = filteredSubtitles.map(sub => sub.id).sort((a, b) => a - b);
+    
+    // Check if there are any consecutive pairs
+    for (let i = 0; i < filteredIds.length - 1; i += 2) {
+      const currentId = filteredIds[i];
+      const nextId = filteredIds[i + 1];
+      if (nextId === currentId + 1) {
+        return true;
+      }
+    }
+    return false;
+  }, [filteredSubtitles]);
+
   const canUndo = previousSubtitles !== null;
 
   return (
@@ -1265,6 +1472,8 @@ const App: React.FC = () => {
             onFixTimecodeConflicts={handleFixTimecodeConflicts}
             hasTooShortSegmentsInFiltered={hasTooShortSegmentsInFiltered}
             onFixTooShortSegments={handleFixTooShortSegments}
+            hasConsecutivePairsInFiltered={hasConsecutivePairsInFiltered}
+            onBulkMergeFiltered={handleBulkMergeFiltered}
             onMergeNext={handleMergeSubtitleWithNext}
             onShowAll={handleShowAll}
             onUpdateSubtitle={handleUpdateSubtitle}
