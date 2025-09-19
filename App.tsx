@@ -918,6 +918,11 @@ const App: React.FC = () => {
         if (subtitleIndex === -1) continue;
         
         const subtitle = newSubtitles[subtitleIndex];
+        // Skip segments that are at or under 1 second to avoid making them too short
+        if (subtitle.duration <= minDurationSeconds) {
+          console.log(`⏭️ Skipping segment #${subtitle.id} - duration ${subtitle.duration}s is at or under minimum ${minDurationSeconds}s`);
+          continue;
+        }
         
         // Reduce end time by 1ms
         const newEndTime = reduceTimecodeByOneMs(subtitle.endTime);
