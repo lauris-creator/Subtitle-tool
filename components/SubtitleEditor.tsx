@@ -34,6 +34,8 @@ interface SubtitleEditorProps {
   onFixTimecodeConflicts: () => void;
   hasTooShortSegmentsInFiltered: boolean;
   onFixTooShortSegments: () => void;
+  hasConsecutivePairsInFiltered: boolean;
+  onBulkMergeFiltered: () => void;
   onShowAll: () => void;
   onUpdateSubtitle: (id: number, newText: string) => void;
   onUpdateTimecode: (id: number, newStartTime: string, newEndTime: string) => void;
@@ -78,6 +80,8 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     onFixTimecodeConflicts,
     hasTooShortSegmentsInFiltered,
     onFixTooShortSegments,
+    hasConsecutivePairsInFiltered,
+    onBulkMergeFiltered,
     onMergeNext,
     onShowAll,
     maxTotalChars,
@@ -200,6 +204,16 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             >
               <span className="mr-1">⏰</span>
               <span>Fix Too Short</span>
+            </button>
+          )}
+          {hasConsecutivePairsInFiltered && (
+             <button
+              onClick={onBulkMergeFiltered}
+              className="flex items-center text-sm transition-colors text-teal-400 hover:text-teal-300"
+              title="Merge consecutive pairs of filtered segments"
+            >
+              <span className="mr-1">🔗</span>
+              <span>Bulk Merge</span>
             </button>
           )}
           {hasOriginalText && (
