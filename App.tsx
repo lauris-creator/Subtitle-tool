@@ -551,6 +551,68 @@ const App: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadAll = async () => {
+    if (translatedSubtitles.length === 0 || availableFiles.length === 0) return;
+    
+    console.log(`📦 Creating ZIP with ${availableFiles.length} files`);
+    
+    // Group subtitles by source file
+    const subtitlesByFile = new Map<string, Subtitle[]>();
+    translatedSubtitles.forEach(sub => {
+      if (sub.sourceFile) {
+        if (!subtitlesByFile.has(sub.sourceFile)) {
+          subtitlesByFile.set(sub.sourceFile, []);
+        }
+        subtitlesByFile.get(sub.sourceFile)!.push(sub);
+      }
+    });
+    
+    // Create individual SRT files
+    const files: Array<{name: string, content: string}> = [];
+    subtitlesByFile.forEach((subs, fileName) => {
+      // Renumber IDs for each file
+      const renumberedSubs = subs.map((sub, index) => ({
+        ...sub,
+        id: index + 1
+      }));
+      
+      const srtContent = formatSrt(renumberedSubs);
+      const contentWithBOM = '\uFEFF' + srtContent;
+      const editedFileName = fileName.replace('.srt', '_edited.srt');
+      
+      files.push({
+        name: editedFileName,
+        content: contentWithBOM
+      });
+    });
+    
+    // Create ZIP file
+    try {
+      // Import JSZip dynamically
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      
+      files.forEach(file => {
+        zip.file(file.name, file.content);
+      });
+      
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `edited_subtitles_${files.length}_files.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      console.log(`📦 Downloaded ZIP with ${files.length} files`);
+    } catch (error) {
+      console.error('Error creating ZIP:', error);
+      alert('Error creating ZIP file. Please try downloading individual files.');
+    }
+  };
+
   const handleSplitFilteredLines = useCallback(() => {
     setPreviousSubtitles(translatedSubtitles); // Save state for undo
     setTranslatedSubtitles(prev => {
@@ -1431,6 +1493,7 @@ const App: React.FC = () => {
         availableFiles={availableFiles}
         currentFileFilter={currentFileFilter}
         onFileFilterChange={handleFileFilterChange}
+        onDownloadAll={handleDownloadAll}
       />
 
       <main className="flex-grow container mx-auto p-4 md:p-8">
