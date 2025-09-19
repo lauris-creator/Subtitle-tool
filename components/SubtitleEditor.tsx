@@ -241,6 +241,14 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
           {subtitles.map((subtitle, index) => {
             const isNewFile = index === 0 || subtitle.sourceFile !== subtitles[index - 1].sourceFile;
             
+            // Calculate per-file ID (restart from 1 for each file)
+            let fileSpecificId = 1;
+            if (subtitle.sourceFile) {
+              // Count how many subtitles from the same file come before this one
+              const precedingFromSameFile = subtitles.slice(0, index).filter(sub => sub.sourceFile === subtitle.sourceFile);
+              fileSpecificId = precedingFromSameFile.length + 1;
+            }
+            
             return (
               <React.Fragment key={subtitle.id}>
                 {isNewFile && subtitle.sourceFile && (
@@ -256,6 +264,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
                 )}
                 <SubtitleItem
                   subtitle={subtitle}
+                  fileSpecificId={fileSpecificId}
                   showOriginal={showOriginal}
                   showTimecodes={showTimecodes}
                   maxTotalChars={maxTotalChars}

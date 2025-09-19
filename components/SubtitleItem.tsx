@@ -7,6 +7,7 @@ import { parseTimecodeInput } from '../utils/timecodeUtils';
 
 interface SubtitleItemProps {
   subtitle: Subtitle;
+  fileSpecificId?: number;
   showOriginal: boolean;
   showTimecodes: boolean;
   onUpdateSubtitle: (id: number, newText: string) => void;
@@ -22,6 +23,7 @@ interface SubtitleItemProps {
 
 const SubtitleItem: React.FC<SubtitleItemProps> = ({
   subtitle,
+  fileSpecificId,
   showOriginal,
   showTimecodes,
   onUpdateSubtitle,
@@ -134,7 +136,7 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
               </div>
             )}
             <div className="mt-2 space-y-1">
-              <p className="text-xs">ID: {subtitle.id}</p>
+              <p className="text-xs">ID: {fileSpecificId || subtitle.id}</p>
               {subtitle.sourceFile && (
                 <p className="text-xs text-purple-400 bg-purple-900/20 px-2 py-1 rounded">
                   📁 {subtitle.sourceFile}
