@@ -40,6 +40,7 @@ const App: React.FC = () => {
       setOriginalSubtitles(savedSession.originalSubtitles);
       setTranslatedSubtitles(savedSession.translatedSubtitles);
       setFileName(savedSession.fileName);
+      setAvailableFiles(savedSession.availableFiles || []); // Restore available files
       setSessionRestored(true);
       
       const sessionAge = sessionManager.getSessionAge();
@@ -54,13 +55,14 @@ const App: React.FC = () => {
         originalSubtitles,
         translatedSubtitles,
         fileName,
+        availableFiles,
         maxTotalChars,
         maxLineChars,
         minDurationSeconds,
         maxDurationSeconds
       });
     }
-  }, [originalSubtitles, translatedSubtitles, fileName, sessionRestored, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
+  }, [originalSubtitles, translatedSubtitles, fileName, availableFiles, sessionRestored, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
 
   // Clear "recently edited" status when filters change (not after timeout)
   useEffect(() => {
@@ -704,6 +706,8 @@ const App: React.FC = () => {
       setTranslatedSubtitles([]);
       setPreviousSubtitles(null);
       setFileName('');
+      setAvailableFiles([]); // Clear available files
+      setCurrentFileFilter(null); // Clear file filter
       setSessionRestored(false);
       console.log('🗑️ Session cleared. Starting fresh!');
     }

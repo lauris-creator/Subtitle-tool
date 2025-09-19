@@ -24,6 +24,7 @@ export interface SessionData {
   translatedSubtitles: Subtitle[];
   originalSubtitles: Subtitle[];
   fileName: string;
+  availableFiles: string[]; // Multi-file support
   maxTotalChars: number;
   maxLineChars: number;
   minDurationSeconds: number;
