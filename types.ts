@@ -20,7 +20,9 @@ export interface Subtitle {
 }
 
 export interface SessionData {
+  originalSubtitles: Subtitle[];
   translatedSubtitles: Subtitle[];
+  fileName: string;
   maxTotalChars: number;
   maxLineChars: number;
   minDurationSeconds: number;

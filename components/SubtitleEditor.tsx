@@ -1,5 +1,6 @@
 import React from 'react';
 import { Subtitle } from '../types';
+import { CascadePlan } from '../utils/timecodeUtils';
 import SubtitleItem from './SubtitleItem';
 import { EyeIcon, EyeOffIcon, ClockIcon, NoClockIcon, FilterIcon, LineLengthIcon } from './icons/Icons';
 
@@ -32,6 +33,11 @@ interface SubtitleEditorProps {
   onBulkSplitFiltered: () => void;
   hasTimecodeConflictsInFiltered: boolean;
   onFixTimecodeConflicts: () => void;
+  onCascadePreview: () => void;
+  onApplyCascadeFix: () => void;
+  cascadePreview: CascadePlan | null;
+  showCascadePreview: boolean;
+  onCloseCascadePreview: () => void;
   onShowAll: () => void;
   onUpdateSubtitle: (id: number, newText: string) => void;
   onUpdateTimecode: (id: number, newStartTime: string, newEndTime: string) => void;
@@ -74,6 +80,11 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     onBulkSplitFiltered,
     hasTimecodeConflictsInFiltered,
     onFixTimecodeConflicts,
+    onCascadePreview,
+    onApplyCascadeFix,
+    cascadePreview,
+    showCascadePreview,
+    onCloseCascadePreview,
     onMergeNext,
     onShowAll,
     maxTotalChars,
@@ -186,6 +197,16 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             >
               <span className="mr-1">🔧</span>
               <span>Fix Conflicts</span>
+            </button>
+          )}
+          {hasTimecodeConflictsInFiltered && (
+             <button
+              onClick={onCascadePreview}
+              className="flex items-center text-sm transition-colors text-orange-400 hover:text-orange-300"
+              title="Smart cascade fix - intelligently adjust multiple segments"
+            >
+              <span className="mr-1">🧠</span>
+              <span>Smart Fix</span>
             </button>
           )}
           {hasOriginalText && (
