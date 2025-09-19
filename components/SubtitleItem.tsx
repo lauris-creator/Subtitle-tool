@@ -135,6 +135,11 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
             )}
             <div className="mt-2 space-y-1">
               <p className="text-xs">ID: {subtitle.id}</p>
+              {subtitle.sourceFile && (
+                <p className="text-xs text-purple-400 bg-purple-900/20 px-2 py-1 rounded">
+                  📁 {subtitle.sourceFile}
+                </p>
+              )}
               <div className="flex items-center gap-1 text-blue-400">
                 <ClockIcon className="h-3 w-3" />
                 <span className="text-xs">{formatDuration(duration)}</span>

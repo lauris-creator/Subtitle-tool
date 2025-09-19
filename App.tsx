@@ -73,7 +73,7 @@ const App: React.FC = () => {
   }, [showErrorsOnly, showLongLinesOnly, showTooShortOnly, showTooLongOnly, showTimecodeConflictsOnly]); // Clear when filters change
 
   const handleFileUpload = (content: string, type: 'original' | 'translated', name: string) => {
-    const subs = parseSrt(content);
+    const subs = parseSrt(content, name);
     setPreviousSubtitles(null); // Clear undo history on new file upload
     if (type === 'translated') {
       // Apply current character limits and duration validation to parsed subtitles
@@ -96,6 +96,8 @@ const App: React.FC = () => {
       });
       setTranslatedSubtitles(processedSubs);
       setFileName(name);
+      // Add file to available files list
+      setAvailableFiles(prev => prev.includes(name) ? prev : [...prev, name]);
       // If original is already loaded, merge them
       if (originalSubtitles.length > 0) {
         setTranslatedSubtitles(prevSubs => prevSubs.map((sub, index) => ({
