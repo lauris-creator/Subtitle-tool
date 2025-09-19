@@ -1661,6 +1661,7 @@ const App: React.FC = () => {
         ) : (
           <SubtitleEditor 
             subtitles={filteredSubtitles}
+            allSubtitles={translatedSubtitles}
             showOriginal={showOriginal && originalSubtitles.length > 0}
             setShowOriginal={setShowOriginal}
             showTimecodes={showTimecodes}

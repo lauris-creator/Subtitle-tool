@@ -5,6 +5,7 @@ import { EyeIcon, EyeOffIcon, ClockIcon, NoClockIcon, FilterIcon, LineLengthIcon
 
 interface SubtitleEditorProps {
   subtitles: Subtitle[];
+  allSubtitles?: Subtitle[]; // Complete list for calculating original file positions
   showOriginal: boolean;
   setShowOriginal: (show: boolean) => void;
   showTimecodes: boolean;
@@ -51,8 +52,9 @@ interface SubtitleEditorProps {
 const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
   const { 
     subtitles, 
+    allSubtitles,
     showOriginal, 
-    setShowOriginal, 
+    setShowOriginal,
     showTimecodes, 
     setShowTimecodes, 
     hasTotalLengthErrors,
@@ -241,12 +243,13 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
           {subtitles.map((subtitle, index) => {
             const isNewFile = index === 0 || subtitle.sourceFile !== subtitles[index - 1].sourceFile;
             
-            // Calculate per-file ID (restart from 1 for each file)
+            // Calculate per-file ID using the complete subtitle list (not filtered)
             let fileSpecificId = 1;
-            if (subtitle.sourceFile) {
-              // Count how many subtitles from the same file come before this one
-              const precedingFromSameFile = subtitles.slice(0, index).filter(sub => sub.sourceFile === subtitle.sourceFile);
-              fileSpecificId = precedingFromSameFile.length + 1;
+            if (subtitle.sourceFile && allSubtitles) {
+              // Find the position of this subtitle in the complete list of all subtitles from the same file
+              const allFromSameFile = allSubtitles.filter(sub => sub.sourceFile === subtitle.sourceFile);
+              const positionInFile = allFromSameFile.findIndex(sub => sub.id === subtitle.id);
+              fileSpecificId = positionInFile + 1; // Convert 0-based index to 1-based ID
             }
             
             return (
@@ -257,7 +260,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
                       <span className="text-purple-400 font-semibold text-sm">📁</span>
                       <span className="text-purple-300 font-medium text-sm">{subtitle.sourceFile}</span>
                       <span className="text-purple-500 text-xs">
-                        ({subtitles.filter(sub => sub.sourceFile === subtitle.sourceFile).length} subtitles)
+                        ({allSubtitles ? allSubtitles.filter(sub => sub.sourceFile === subtitle.sourceFile).length : subtitles.filter(sub => sub.sourceFile === subtitle.sourceFile).length} subtitles)
                       </span>
                     </div>
                   </div>
