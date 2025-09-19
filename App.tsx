@@ -438,7 +438,7 @@ const App: React.FC = () => {
         const isInFilteredView = currentFilteredSubtitles.some(filteredSub => filteredSub.id === sub.id);
         
         if (isInFilteredView && sub.text.includes('\n')) {
-          const singleLineText = sub.text.replace(/\n/g, ' ');
+          const singleLineText = sub.text.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
           const charCount = singleLineText.length;
           const isLong = charCount > maxTotalChars;
           const duration = calculateDuration(sub.startTime, sub.endTime);
