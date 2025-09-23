@@ -1,15 +1,13 @@
 import React from 'react';
 import { Subtitle } from '../types';
 import SubtitleItem from './SubtitleItem';
-import { EyeIcon, EyeOffIcon, ClockIcon, NoClockIcon, FilterIcon, LineLengthIcon } from './icons/Icons';
+import { EyeIcon, EyeOffIcon, ClockIcon, FilterIcon, LineLengthIcon } from './icons/Icons';
 
 interface SubtitleEditorProps {
   subtitles: Subtitle[];
   allSubtitles?: Subtitle[]; // Complete list for calculating original file positions
   showOriginal: boolean;
   setShowOriginal: (show: boolean) => void;
-  showTimecodes: boolean;
-  setShowTimecodes: (show: boolean) => void;
   hasTotalLengthErrors: boolean;
   showErrorsOnly: boolean;
   setShowErrorsOnly: (show: boolean) => void;
@@ -25,6 +23,9 @@ interface SubtitleEditorProps {
   hasTimecodeConflicts: boolean;
   showTimecodeConflictsOnly: boolean;
   setShowTimecodeConflictsOnly: (show: boolean) => void;
+  hasFormatErrors: boolean;
+  showFormatErrorsOnly: boolean;
+  setShowFormatErrorsOnly: (show: boolean) => void;
   hasMultiLineInFiltered: boolean;
   onRemoveBreaksFromFiltered: () => void;
   hasLongLinesInFiltered: boolean;
@@ -55,8 +56,6 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     allSubtitles,
     showOriginal, 
     setShowOriginal,
-    showTimecodes, 
-    setShowTimecodes, 
     hasTotalLengthErrors,
     showErrorsOnly,
     setShowErrorsOnly,
@@ -72,6 +71,9 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     hasTimecodeConflicts,
     showTimecodeConflictsOnly,
     setShowTimecodeConflictsOnly,
+    hasFormatErrors,
+    showFormatErrorsOnly,
+    setShowFormatErrorsOnly,
     hasMultiLineInFiltered,
     onRemoveBreaksFromFiltered,
     hasLongLinesInFiltered,
@@ -158,6 +160,16 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
               <span>Time Conflicts</span>
             </button>
           )}
+          {hasFormatErrors && (
+             <button
+              onClick={() => setShowFormatErrorsOnly(!showFormatErrorsOnly)}
+              className={`flex items-center text-sm transition-colors ${showFormatErrorsOnly ? 'text-purple-400' : 'text-gray-300 hover:text-white'}`}
+              title={showFormatErrorsOnly ? 'Show All' : 'Show segments with punctuation or bracket issues (+ adjacent segments)'}
+            >
+              <FilterIcon className="h-5 w-5 mr-1" />
+              <span>Format Errors</span>
+            </button>
+          )}
           {hasMultiLineInFiltered && (
              <button
               onClick={onRemoveBreaksFromFiltered}
@@ -228,14 +240,6 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
               <span>Original</span>
             </button>
           )}
-          <button
-            onClick={() => setShowTimecodes(!showTimecodes)}
-            className="flex items-center text-sm text-gray-300 hover:text-white transition-colors"
-            title={showTimecodes ? 'Hide Timecodes' : 'Show Timecodes'}
-          >
-            {showTimecodes ? <NoClockIcon className="h-5 w-5 mr-1" /> : <ClockIcon className="h-5 w-5 mr-1" />}
-            <span>Timecodes</span>
-          </button>
         </div>
       </div>
       <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
@@ -269,7 +273,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
                   subtitle={subtitle}
                   fileSpecificId={fileSpecificId}
                   showOriginal={showOriginal}
-                  showTimecodes={showTimecodes}
+                  showTimecodes={true}
                   maxTotalChars={maxTotalChars}
                   maxLineChars={maxLineChars}
                   minDurationSeconds={minDurationSeconds}

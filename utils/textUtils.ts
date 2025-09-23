@@ -103,3 +103,30 @@ export function validateSplit(text: string): boolean {
   const words = text.replace(/\n/g, ' ').trim().split(' ');
   return words.length >= 2 && text.trim().length > 10; // At least 2 words and 10 characters
 }
+
+export function cleanSpaces(text: string): string {
+  // Replace multiple consecutive spaces (double, triple, etc.) with single space
+  // Also clean up spaces around line breaks
+  return text
+    .replace(/\s+/g, ' ')           // Replace multiple spaces with single space
+    .replace(/\s*\n\s*/g, ' ')      // Replace newlines with spaces and clean surrounding spaces
+    .trim();                        // Remove leading/trailing whitespace
+}
+
+export function hasFormatErrors(text: string): boolean {
+  // Remove leading and trailing whitespace for accurate detection
+  const trimmedText = text.trim();
+  
+  if (!trimmedText) return false;
+  
+  // Check if segment starts with punctuation
+  const startsWithPunctuation = /^[.,;:!?\-]/.test(trimmedText);
+  
+  // Check if segment starts with closing brackets
+  const startsWithClosingBracket = /^[\)\]\}\>]/.test(trimmedText);
+  
+  // Check if segment ends with opening brackets
+  const endsWithOpeningBracket = /[\(\[\{\<]$/.test(trimmedText);
+  
+  return startsWithPunctuation || startsWithClosingBracket || endsWithOpeningBracket;
+}
