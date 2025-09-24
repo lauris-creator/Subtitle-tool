@@ -780,6 +780,7 @@ const App: React.FC = () => {
     setShowTooShortOnly(false);
     setShowTooLongOnly(false);
     setShowTimecodeConflictsOnly(false);
+    setShowFormatErrorsOnly(false);
   };
 
   const handleFileFilterChange = (fileName: string | null) => {
