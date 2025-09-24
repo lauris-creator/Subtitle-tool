@@ -119,14 +119,26 @@ export function hasFormatErrors(text: string): boolean {
   
   if (!trimmedText) return false;
   
-  // Check if segment starts with punctuation
-  const startsWithPunctuation = /^[.,;:!?\-]/.test(trimmedText);
+  // Check if segment has more than 2 lines
+  const lines = trimmedText.split('\n');
+  const hasMoreThanTwoLines = lines.length > 2;
   
-  // Check if segment starts with closing brackets
-  const startsWithClosingBracket = /^[\)\]\}\>]/.test(trimmedText);
+  // Check per-line punctuation and bracket issues
+  const hasPerLineIssues = lines.some(line => {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) return false;
+    
+    // Check if line starts with punctuation
+    const startsWithPunctuation = /^[.,;:!?\-]/.test(trimmedLine);
+    
+    // Check if line starts with closing brackets
+    const startsWithClosingBracket = /^[\)\]\}\>]/.test(trimmedLine);
+    
+    // Check if line ends with opening brackets
+    const endsWithOpeningBracket = /[\(\[\{\<]$/.test(trimmedLine);
+    
+    return startsWithPunctuation || startsWithClosingBracket || endsWithOpeningBracket;
+  });
   
-  // Check if segment ends with opening brackets
-  const endsWithOpeningBracket = /[\(\[\{\<]$/.test(trimmedText);
-  
-  return startsWithPunctuation || startsWithClosingBracket || endsWithOpeningBracket;
+  return hasMoreThanTwoLines || hasPerLineIssues;
 }

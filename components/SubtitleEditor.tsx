@@ -164,7 +164,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
              <button
               onClick={() => setShowFormatErrorsOnly(!showFormatErrorsOnly)}
               className={`flex items-center text-sm transition-colors ${showFormatErrorsOnly ? 'text-purple-400' : 'text-gray-300 hover:text-white'}`}
-              title={showFormatErrorsOnly ? 'Show All' : 'Show segments with punctuation or bracket issues (+ adjacent segments)'}
+              title={showFormatErrorsOnly ? 'Show All' : 'Show segments with format issues: more than 2 lines, any line starting with punctuation/closing brackets, or any line ending with opening brackets (+ adjacent segments)'}
             >
               <FilterIcon className="h-5 w-5 mr-1" />
               <span>Format Errors</span>
