@@ -30,3 +30,10 @@ export interface SessionData {
   minDurationSeconds: number;
   maxDurationSeconds: number;
 }
+
+export interface User {
+  sub: string;
+  name?: string;
+  email?: string;
+  picture?: string;
+}

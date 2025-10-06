@@ -1,6 +1,7 @@
 import React from 'react';
 import { DownloadIcon, ScissorsIcon, UndoIcon, TrashIcon } from './icons/Icons';
 import Logo from './Logo';
+import { User } from '../types';
 
 interface HeaderProps {
   onDownload: () => void;
@@ -16,6 +17,8 @@ interface HeaderProps {
   availableFiles: string[];
   currentFileFilter: string | null;
   onFileFilterChange: (fileName: string | null) => void;
+  user?: User | null;
+  onLogout?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -30,7 +33,9 @@ const Header: React.FC<HeaderProps> = ({
   maxDurationSeconds,
   availableFiles,
   currentFileFilter,
-  onFileFilterChange
+  onFileFilterChange,
+  user,
+  onLogout
 }) => {
   return (
     <header className="bg-gray-800 shadow-md sticky top-0 z-10">
@@ -106,6 +111,24 @@ const Header: React.FC<HeaderProps> = ({
                 </div>
               </div>
             )}
+            {/* Auth section */}
+            <div className="flex items-center">
+              {!user ? (
+                <div id="googleSignInBtn"></div>
+              ) : (
+                <div className="flex items-center space-x-3">
+                  {user.picture && (
+                    <img src={user.picture} alt="" className="w-7 h-7 rounded-full" />
+                  )}
+                  <span className="text-sm text-gray-200">{user.name || user.email}</span>
+                  {onLogout && (
+                    <button onClick={onLogout} className="px-3 py-1 text-sm bg-gray-600 hover:bg-gray-500 rounded">
+                      Logout
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             {canUndo && (
               <button
                 onClick={onUndo}

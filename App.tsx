@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Subtitle } from './types';
+import { Subtitle, User } from './types';
+import { loadUser, saveUser, clearUser } from './services/auth';
 import { parseSrt, formatSrt } from './services/srtParser';
 import { sessionManager } from './services/sessionManager';
 import { splitTextIntelligently, splitLineIntelligently, cleanSpaces, hasFormatErrors } from './utils/textUtils';
@@ -32,6 +33,7 @@ const App: React.FC = () => {
   // Multi-file support
   const [availableFiles, setAvailableFiles] = useState<string[]>([]);
   const [currentFileFilter, setCurrentFileFilter] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   // Restore session on component mount
   useEffect(() => {
@@ -46,6 +48,9 @@ const App: React.FC = () => {
       const sessionAge = sessionManager.getSessionAge();
       console.log(`📂 Session restored! Last saved ${sessionAge} minutes ago.`);
     }
+    // Load user from local storage
+    const existingUser = loadUser();
+    if (existingUser) setUser(existingUser);
   }, []);
 
   // Auto-save session when subtitles change
@@ -63,6 +68,42 @@ const App: React.FC = () => {
       });
     }
   }, [originalSubtitles, translatedSubtitles, fileName, availableFiles, sessionRestored, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
+
+  // Initialize Google Sign-In button
+  useEffect(() => {
+    // @ts-ignore
+    const google = (window as any).google;
+    if (!google || user) return;
+    try {
+      google.accounts.id.initialize({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        callback: (response: any) => {
+          try {
+            const payload = JSON.parse(atob(response.credential.split('.')[1]));
+            const newUser: User = {
+              sub: payload.sub,
+              name: payload.name,
+              email: payload.email,
+              picture: payload.picture
+            };
+            saveUser(newUser);
+            setUser(newUser);
+          } catch (e) {
+            console.warn('Failed to parse Google credential', e);
+          }
+        }
+      });
+      const btn = document.getElementById('googleSignInBtn');
+      if (btn) {
+        google.accounts.id.renderButton(btn, { theme: 'outline', size: 'medium' });
+      }
+    } catch {}
+  }, [user]);
+
+  const handleLogout = () => {
+    clearUser();
+    setUser(null);
+  };
 
   // Clear "recently edited" status when filters change (not after timeout)
   useEffect(() => {
@@ -1525,6 +1566,8 @@ const App: React.FC = () => {
         availableFiles={availableFiles}
         currentFileFilter={currentFileFilter}
         onFileFilterChange={handleFileFilterChange}
+        user={user}
+        onLogout={handleLogout}
       />
 
       <main className="flex-grow container mx-auto p-4 md:p-8">
