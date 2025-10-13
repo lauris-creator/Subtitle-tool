@@ -243,9 +243,11 @@ const App: React.FC = () => {
     setPreviousSubtitles(translatedSubtitles); // Save state for undo
     setTranslatedSubtitles(prev => {
       const now = Date.now();
-      return prev.map(sub => {
+      
+      // First, update the edited subtitle
+      const updatedSubtitles = prev.map(sub => {
         if (sub.id === id) {
-          const updatedSub = {
+          return {
             ...sub,
             startTime: newStartTime,
             endTime: newEndTime,
@@ -258,18 +260,17 @@ const App: React.FC = () => {
             editedAt: now,
             canUndo: true
           };
-          
-          // Check for conflicts with updated timecodes
-          const hasConflict = hasTimecodeConflict(updatedSub, prev.map(s => 
-            s.id === id ? updatedSub : s
-          ));
-          
-          return {
-            ...updatedSub,
-            hasTimecodeConflict: hasConflict
-          };
         }
         return sub;
+      });
+      
+      // Then recalculate conflict status for ALL subtitles
+      return updatedSubtitles.map(sub => {
+        const hasConflict = hasTimecodeConflict(sub, updatedSubtitles);
+        return {
+          ...sub,
+          hasTimecodeConflict: hasConflict
+        };
       });
     });
   }, [minDurationSeconds, maxDurationSeconds]);
