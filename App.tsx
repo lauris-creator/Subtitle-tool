@@ -1318,6 +1318,24 @@ const App: React.FC = () => {
       return fileFilteredSubtitles.filter(sub => formatErrorSubtitleIds.has(sub.id));
     }
 
+    // Special handling for "Too Short" filter - include the trailing segment
+    if (showTooShortOnly) {
+      const tooShortOrTrailingIds = new Set<number>();
+
+      fileFilteredSubtitles.forEach((sub, index) => {
+        if (sub.isTooShort) {
+          // Add the too-short subtitle itself
+          tooShortOrTrailingIds.add(sub.id);
+          // Also add the trailing (next) subtitle if it exists
+          if (index < fileFilteredSubtitles.length - 1) {
+            tooShortOrTrailingIds.add(fileFilteredSubtitles[index + 1].id);
+          }
+        }
+      });
+
+      return fileFilteredSubtitles.filter(sub => tooShortOrTrailingIds.has(sub.id));
+    }
+
     return fileFilteredSubtitles.filter(sub => {
       const lineLengthExceeded = sub.text.split('\n').some(line => line.length > maxLineChars);
       
