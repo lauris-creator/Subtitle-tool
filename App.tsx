@@ -1339,7 +1339,10 @@ const App: React.FC = () => {
         }
       });
 
-      return fileFilteredSubtitles.filter(sub => tooShortOrAdjacentIds.has(sub.id));
+      // Return all matching segments plus recently edited ones (sticky behavior)
+      return fileFilteredSubtitles.filter(sub => 
+        tooShortOrAdjacentIds.has(sub.id) || sub.recentlyEdited
+      );
     }
 
     return fileFilteredSubtitles.filter(sub => {
