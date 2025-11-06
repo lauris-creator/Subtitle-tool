@@ -8,81 +8,30 @@ interface LogoProps {
 }
 
 const Logo: React.FC<LogoProps> = ({ size = 'medium', className = '' }) => {
-  // Size-based dimensions for the icon
-  const iconSizes = {
-    small: { width: 24, height: 24 },
-    medium: { width: 32, height: 32 },
-    large: { width: 48, height: 48 }
+  // Size-based heights (maintaining aspect ratio ~2.33:1 from SVG viewBox 1400x600)
+  const heights = {
+    small: 32,   // ~74px wide
+    medium: 48,  // ~112px wide
+    large: 64    // ~149px wide
   };
 
-  // Text sizes
-  const textSizes = {
-    small: 'text-lg',
-    medium: 'text-xl',
-    large: 'text-3xl'
-  };
-
-  const iconSize = iconSizes[size];
-  const textSize = textSizes[size];
+  const height = heights[size];
 
   return (
     <a 
       href="https://linearis.io/contact/" 
       target="_blank" 
       rel="noopener noreferrer"
-      className={`flex items-center gap-2 hover:opacity-80 transition-opacity no-underline text-inherit ${className}`}
+      className={`inline-flex items-center hover:opacity-80 transition-opacity no-underline text-inherit ${className}`}
       title="Visit Linearis Contact Page"
       style={{ textDecoration: 'none', color: 'inherit' }}
     >
-      {/* LINEARIS Icon - L shape with square */}
-      <svg
-        width={iconSize.width}
-        height={iconSize.height}
-        viewBox="0 0 32 32"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="flex-shrink-0"
-      >
-        {/* Outer square outline */}
-        <rect
-          x="2"
-          y="2"
-          width="28"
-          height="28"
-          stroke="currentColor"
-          strokeWidth="2"
-          fill="none"
-        />
-        {/* Inner square in top-left */}
-        <rect
-          x="4"
-          y="4"
-          width="8"
-          height="8"
-          fill="currentColor"
-        />
-        {/* L shape - horizontal line from inner square to right edge */}
-        <rect
-          x="4"
-          y="12"
-          width="24"
-          height="2"
-          fill="currentColor"
-        />
-        {/* L shape - vertical line extending down */}
-        <rect
-          x="4"
-          y="14"
-          width="2"
-          height="16"
-          fill="currentColor"
-        />
-      </svg>
-      
-      {/* LINEARIS Text */}
-      <span className={`font-bold text-white uppercase tracking-tight ${textSize}`}>
-        LINEARIS
-      </span>
+      <img 
+        src="/linearis-logo.svg" 
+        alt="LINEARIS Logo"
+        style={{ height: `${height}px`, width: 'auto' }}
+        className="object-contain"
+      />
     </a>
   );
 };
