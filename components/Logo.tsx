@@ -10,9 +10,9 @@ interface LogoProps {
 const Logo: React.FC<LogoProps> = ({ size = 'medium', className = '' }) => {
   // Size-based heights (maintaining aspect ratio ~2.33:1 from SVG viewBox 1400x600)
   const heights = {
-    small: 42,   // Header size - compact for navigation bar (~75px wide)
-    medium: 68,  // Default size (~112px wide)
-    large: 120   // Landing page size - prominent display (~280px wide)
+    small: 63,   // Header size - 50% larger (~147px wide)
+    medium: 68,  // Default size (~158px wide)
+    large: 180   // Landing page size - 50% larger (~420px wide)
   };
 
   const height = heights[size];
