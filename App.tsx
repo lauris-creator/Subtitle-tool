@@ -1598,10 +1598,10 @@ const App: React.FC = () => {
         onLogout={handleLogout}
       />
 
-      <main className="flex-grow container mx-auto p-4 md:p-4">
+      <main className="flex-grow container mx-auto p-2 md:p-2">
         {translatedSubtitles.length === 0 ? (
-          <div className="text-center mt-4 max-w-2xl mx-auto">
-            <div className="flex justify-center mb-6">
+          <div className="text-center mt-2 max-w-2xl mx-auto">
+            <div className="flex justify-center mb-2">
               <Logo size="large" />
             </div>
             <p className="text-gray-400 text-lg mb-8">
