@@ -30,8 +30,9 @@ const Logo: React.FC<LogoProps> = ({ size = 'medium', className = '' }) => {
       href="https://linearis.io/contact/" 
       target="_blank" 
       rel="noopener noreferrer"
-      className={`flex items-center gap-2 hover:opacity-80 transition-opacity ${className}`}
+      className={`flex items-center gap-2 hover:opacity-80 transition-opacity no-underline text-inherit ${className}`}
       title="Visit Linearis Contact Page"
+      style={{ textDecoration: 'none', color: 'inherit' }}
     >
       {/* LINEARIS Icon - L shape with square */}
       <svg
