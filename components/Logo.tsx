@@ -26,7 +26,13 @@ const Logo: React.FC<LogoProps> = ({ size = 'medium', className = '' }) => {
   const textSize = textSizes[size];
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
+    <a 
+      href="https://linearis.io/contact/" 
+      target="_blank" 
+      rel="noopener noreferrer"
+      className={`flex items-center gap-2 hover:opacity-80 transition-opacity ${className}`}
+      title="Visit Linearis Contact Page"
+    >
       {/* LINEARIS Icon - L shape with square */}
       <svg
         width={iconSize.width}
@@ -76,7 +82,7 @@ const Logo: React.FC<LogoProps> = ({ size = 'medium', className = '' }) => {
       <span className={`font-bold text-white uppercase tracking-tight ${textSize}`}>
         LINEARIS
       </span>
-    </div>
+    </a>
   );
 };
 
