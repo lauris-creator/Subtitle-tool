@@ -8,39 +8,73 @@ interface LogoProps {
 }
 
 const Logo: React.FC<LogoProps> = ({ size = 'medium', className = '' }) => {
-  const sizeClasses = {
-    small: 'h-8', // Header size
-    medium: 'h-12', // Default size
-    large: 'h-16' // Landing page size
+  // Size-based dimensions for the icon
+  const iconSizes = {
+    small: { width: 24, height: 24 },
+    medium: { width: 32, height: 32 },
+    large: { width: 48, height: 48 }
   };
 
-  const logoSrc = '/logo.png'; // Place your logo file in the public folder
+  // Text sizes
+  const textSizes = {
+    small: 'text-lg',
+    medium: 'text-xl',
+    large: 'text-3xl'
+  };
+
+  const iconSize = iconSizes[size];
+  const textSize = textSizes[size];
 
   return (
-    <div className={`flex items-center ${className}`}>
-      <img 
-        src={logoSrc}
-        alt="Company Logo"
-        className={`${sizeClasses[size]} w-auto object-contain`}
-        onError={(e) => {
-          // Fallback to text if logo doesn't load
-          const target = e.target as HTMLImageElement;
-          target.style.display = 'none';
-          const fallback = target.nextElementSibling as HTMLElement;
-          if (fallback) {
-            fallback.style.display = 'block';
-          }
-        }}
-      />
-      {/* Fallback text (hidden by default, shown if image fails to load) */}
-      <span 
-        className={`font-bold text-white ${
-          size === 'small' ? 'text-xl' : 
-          size === 'large' ? 'text-4xl' : 'text-2xl'
-        }`}
-        style={{ display: 'none' }}
+    <div className={`flex items-center gap-2 ${className}`}>
+      {/* LINEARIS Icon - L shape with square */}
+      <svg
+        width={iconSize.width}
+        height={iconSize.height}
+        viewBox="0 0 32 32"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="flex-shrink-0"
       >
-        SRT Subtitle Editor
+        {/* Outer square outline */}
+        <rect
+          x="2"
+          y="2"
+          width="28"
+          height="28"
+          stroke="currentColor"
+          strokeWidth="2"
+          fill="none"
+        />
+        {/* Inner square in top-left */}
+        <rect
+          x="4"
+          y="4"
+          width="8"
+          height="8"
+          fill="currentColor"
+        />
+        {/* L shape - horizontal line from inner square to right edge */}
+        <rect
+          x="4"
+          y="12"
+          width="24"
+          height="2"
+          fill="currentColor"
+        />
+        {/* L shape - vertical line extending down */}
+        <rect
+          x="4"
+          y="14"
+          width="2"
+          height="16"
+          fill="currentColor"
+        />
+      </svg>
+      
+      {/* LINEARIS Text */}
+      <span className={`font-bold text-white uppercase tracking-tight ${textSize}`}>
+        LINEARIS
       </span>
     </div>
   );
