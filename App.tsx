@@ -31,8 +31,8 @@ const App: React.FC = () => {
   const [maxDurationSeconds, setMaxDurationSeconds] = useState<number>(7);
   
   // New segment settings
-  const [newSegmentGapSeconds, setNewSegmentGapSeconds] = useState<number>(0.1);
-  const [newSegmentDurationSeconds, setNewSegmentDurationSeconds] = useState<number>(2);
+  const [newSegmentGapSeconds, setNewSegmentGapSeconds] = useState<number>(0.5);
+  const [newSegmentDurationSeconds, setNewSegmentDurationSeconds] = useState<number>(3);
   
   // Early subtitle warning settings
   const [warnEarlySubtitlesEnabled, setWarnEarlySubtitlesEnabled] = useState<boolean>(true);
