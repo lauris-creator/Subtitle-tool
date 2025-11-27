@@ -44,6 +44,10 @@ interface SubtitleEditorProps {
   onUndoSubtitle: (id: number) => void;
   onSplitSubtitle: (id: number) => void;
   onMergeNext: (id: number) => void;
+  onAddSegment: (sourceFile: string | null) => void;
+  onDeleteSegment: (id: number) => void;
+  availableFiles: string[];
+  currentFileFilter: string | null;
   maxTotalChars: number;
   maxLineChars: number;
   minDurationSeconds: number;
@@ -88,6 +92,10 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     onBulkMergeFiltered,
     onMergeNext,
     onShowAll,
+    onAddSegment,
+    onDeleteSegment,
+    availableFiles,
+    currentFileFilter,
     maxTotalChars,
     maxLineChars,
     minDurationSeconds,
@@ -242,10 +250,16 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
           )}
         </div>
       </div>
-      <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
+      <div id="subtitle-container" className="max-h-[calc(100vh-200px)] overflow-y-auto">
         <div className="divide-y divide-gray-700">
           {subtitles.map((subtitle, index) => {
             const isNewFile = index === 0 || subtitle.sourceFile !== subtitles[index - 1].sourceFile;
+            // Check if this is the last subtitle of this file in the current filtered view
+            // It's the last if: it's the last item in the list, OR the next item belongs to a different file
+            const isLastInFile = index === subtitles.length - 1 || 
+              (subtitle.sourceFile !== subtitles[index + 1].sourceFile) ||
+              (subtitle.sourceFile && !subtitles[index + 1].sourceFile) ||
+              (!subtitle.sourceFile && subtitles[index + 1].sourceFile);
             
             // Calculate per-file ID using the complete subtitle list (not filtered)
             let fileSpecificId = 1;
@@ -279,11 +293,33 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
                   minDurationSeconds={minDurationSeconds}
                   maxDurationSeconds={maxDurationSeconds}
                   onMergeNext={onMergeNext}
+                  onDeleteSegment={onDeleteSegment}
                   {...itemProps}
                 />
+                {isLastInFile && (
+                  <div className="px-4 py-3 bg-gray-750 border-t border-gray-700">
+                    <button
+                      onClick={() => {
+                        // Use currentFileFilter if active, otherwise use the subtitle's sourceFile
+                        const targetFile = currentFileFilter || subtitle.sourceFile || null;
+                        onAddSegment(targetFile);
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-md transition-colors text-sm font-medium"
+                      title={`Add new empty segment to ${currentFileFilter || subtitle.sourceFile || 'this file'}`}
+                    >
+                      <span className="text-lg">+</span>
+                      <span>Add Segment</span>
+                    </button>
+                  </div>
+                )}
               </React.Fragment>
             );
           })}
+          {subtitles.length === 0 && (
+            <div className="px-4 py-8 text-center text-gray-400">
+              <p>No subtitles to display</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

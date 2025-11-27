@@ -30,6 +30,10 @@ const App: React.FC = () => {
   const [minDurationSeconds, setMinDurationSeconds] = useState<number>(1);
   const [maxDurationSeconds, setMaxDurationSeconds] = useState<number>(7);
   
+  // New segment settings
+  const [newSegmentGapSeconds, setNewSegmentGapSeconds] = useState<number>(0.1);
+  const [newSegmentDurationSeconds, setNewSegmentDurationSeconds] = useState<number>(2);
+  
   // Early subtitle warning settings
   const [warnEarlySubtitlesEnabled, setWarnEarlySubtitlesEnabled] = useState<boolean>(true);
   const [earlySubtitleThresholdSeconds, setEarlySubtitleThresholdSeconds] = useState<number>(10);
@@ -73,36 +77,6 @@ const App: React.FC = () => {
     }
   }, [originalSubtitles, translatedSubtitles, fileName, availableFiles, sessionRestored, maxTotalChars, maxLineChars, minDurationSeconds, maxDurationSeconds]);
 
-  // Initialize Google Sign-In button
-  useEffect(() => {
-    // @ts-ignore
-    const google = (window as any).google;
-    if (!google || user) return;
-    try {
-      google.accounts.id.initialize({
-        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-        callback: (response: any) => {
-          try {
-            const payload = JSON.parse(atob(response.credential.split('.')[1]));
-            const newUser: User = {
-              sub: payload.sub,
-              name: payload.name,
-              email: payload.email,
-              picture: payload.picture
-            };
-            saveUser(newUser);
-            setUser(newUser);
-          } catch (e) {
-            console.warn('Failed to parse Google credential', e);
-          }
-        }
-      });
-      const btn = document.getElementById('googleSignInBtn');
-      if (btn) {
-        google.accounts.id.renderButton(btn, { theme: 'outline', size: 'medium' });
-      }
-    } catch {}
-  }, [user]);
 
   const handleLogout = () => {
     clearUser();
@@ -1066,6 +1040,152 @@ const App: React.FC = () => {
     setPreviousSubtitles(null);
   }, [maxTotalChars, minDurationSeconds, maxDurationSeconds]);
 
+  const handleAddSegment = useCallback((sourceFile: string | null) => {
+    setPreviousSubtitles(translatedSubtitles); // Save state for undo
+    
+    setTranslatedSubtitles(prev => {
+      // Find the last subtitle in the specified file (or all subtitles if single file)
+      let lastSubtitle: Subtitle | null = null;
+      let lastSubtitleIndex: number = -1;
+      
+      if (sourceFile) {
+        // Multi-file: find last subtitle in the specified file
+        const fileSubtitles = prev.filter(sub => sub.sourceFile === sourceFile);
+        if (fileSubtitles.length > 0) {
+          lastSubtitle = fileSubtitles[fileSubtitles.length - 1];
+          // Find the index of this subtitle in the full array
+          lastSubtitleIndex = prev.findIndex(sub => sub.id === lastSubtitle!.id);
+        }
+      } else {
+        // Single file: find last subtitle overall
+        if (prev.length > 0) {
+          lastSubtitle = prev[prev.length - 1];
+          lastSubtitleIndex = prev.length - 1;
+        }
+      }
+      
+      // If no subtitles exist, start from 00:00:00,000
+      let newStartTime: string;
+      if (lastSubtitle) {
+        // Calculate new start time: last subtitle's endTime + gap
+        newStartTime = addSecondsToTimecode(lastSubtitle.endTime, newSegmentGapSeconds);
+      } else {
+        newStartTime = '00:00:00,000';
+      }
+      
+      // Calculate new end time: startTime + duration
+      const newEndTime = addSecondsToTimecode(newStartTime, newSegmentDurationSeconds);
+      
+      // Find the next available ID (global, as IDs are sequential across all files)
+      const nextId = prev.length > 0 ? Math.max(...prev.map(sub => sub.id)) + 1 : 1;
+      
+      // Create new empty subtitle
+      const newSubtitle: Subtitle = {
+        id: nextId,
+        startTime: newStartTime,
+        endTime: newEndTime,
+        text: '',
+        charCount: 0,
+        isLong: false,
+        duration: newSegmentDurationSeconds,
+        isTooShort: newSegmentDurationSeconds < minDurationSeconds,
+        isTooLong: newSegmentDurationSeconds > maxDurationSeconds,
+        hasTimecodeConflict: false,
+        recentlyEdited: true, // Mark as recently edited so it stays visible
+        editedAt: Date.now(),
+        canUndo: false,
+        sourceFile: sourceFile || undefined
+      };
+      
+      // Insert the new subtitle right after the last subtitle of the target file
+      // If no subtitles exist or lastSubtitleIndex is -1, append to the end
+      let newSubtitles: Subtitle[];
+      if (lastSubtitleIndex >= 0) {
+        newSubtitles = [
+          ...prev.slice(0, lastSubtitleIndex + 1),
+          newSubtitle,
+          ...prev.slice(lastSubtitleIndex + 1)
+        ];
+      } else {
+        // No subtitles exist or file not found, append to end
+        newSubtitles = [...prev, newSubtitle];
+      }
+      
+      // Recalculate conflicts for all subtitles
+      const recomputed = newSubtitles.map(sub => ({
+        ...sub,
+        hasTimecodeConflict: hasTimecodeConflict(sub, newSubtitles)
+      }));
+      
+      console.log(`➕ Added new segment: ID ${nextId}, ${newStartTime} → ${newEndTime}, file: ${sourceFile || 'single'}`);
+      
+      return recomputed;
+    });
+    
+    // Clear global undo since structure changed
+    setPreviousSubtitles(null);
+  }, [translatedSubtitles, newSegmentGapSeconds, newSegmentDurationSeconds, minDurationSeconds, maxDurationSeconds]);
+
+  const handleDeleteSegment = useCallback((id: number) => {
+    setPreviousSubtitles(translatedSubtitles); // Save state for undo
+    
+    setTranslatedSubtitles(prev => {
+      const subtitleToDelete = prev.find(sub => sub.id === id);
+      
+      // Only allow deletion if subtitle is completely empty
+      if (!subtitleToDelete || subtitleToDelete.text.trim().length > 0) {
+        console.log('❌ Cannot delete segment - must be completely empty');
+        return prev;
+      }
+      
+      // Remove the subtitle
+      const newSubtitles = prev.filter(sub => sub.id !== id);
+      
+      // Renumber all IDs to maintain sequence and recalculate all validation properties
+      const renumbered = newSubtitles.map((sub, index) => {
+        const charCount = sub.text.replace(/\n/g, '').length;
+        const duration = calculateDuration(sub.startTime, sub.endTime);
+        return {
+          ...sub,
+          id: index + 1,
+          charCount,
+          isLong: charCount > maxTotalChars,
+          duration,
+          isTooShort: duration < minDurationSeconds,
+          isTooLong: duration > maxDurationSeconds
+        };
+      });
+      
+      // Recalculate conflicts for all subtitles
+      const recomputed = renumbered.map(sub => ({
+        ...sub,
+        hasTimecodeConflict: hasTimecodeConflict(sub, renumbered)
+      }));
+      
+      console.log(`🗑️ Deleted empty segment: ID ${id}`);
+      
+      return recomputed;
+    });
+    
+    // Also remove from original subtitles if present
+    setOriginalSubtitles(prev => {
+      if (prev.length === 0) return prev;
+      
+      const subtitleToDelete = prev.find(sub => sub.id === id);
+      if (!subtitleToDelete || subtitleToDelete.text.trim().length > 0) {
+        return prev;
+      }
+      
+      const newSubtitles = prev.filter(sub => sub.id !== id);
+      return newSubtitles.map((sub, index) => ({
+        ...sub,
+        id: index + 1
+      }));
+    });
+    
+    // Clear global undo since structure changed
+    setPreviousSubtitles(null);
+  }, [translatedSubtitles, maxTotalChars, minDurationSeconds, maxDurationSeconds]);
 
   const handleFixTimecodeConflicts = useCallback(() => {
     setPreviousSubtitles(translatedSubtitles); // Save state for undo
@@ -1808,6 +1928,10 @@ const App: React.FC = () => {
             onUpdateTimecode={handleUpdateTimecode}
             onUndoSubtitle={handleUndoSubtitle}
             onSplitSubtitle={handleSplitSubtitle}
+            onAddSegment={handleAddSegment}
+            onDeleteSegment={handleDeleteSegment}
+            availableFiles={availableFiles}
+            currentFileFilter={currentFileFilter}
             maxTotalChars={maxTotalChars}
             maxLineChars={maxLineChars}
             minDurationSeconds={minDurationSeconds}

@@ -111,24 +111,24 @@ const Header: React.FC<HeaderProps> = ({
                 </div>
               </div>
             )}
-            {/* Auth section */}
-            <div className="flex items-center">
-              {!user ? (
-                <div id="googleSignInBtn"></div>
-              ) : (
-                <div className="flex items-center space-x-3">
-                  {user.picture && (
-                    <img src={user.picture} alt="" className="w-7 h-7 rounded-full" />
-                  )}
-                  <span className="text-sm text-gray-200">{user.name || user.email}</span>
-                  {onLogout && (
-                    <button onClick={onLogout} className="px-3 py-1 text-sm bg-gray-600 hover:bg-gray-500 rounded">
-                      Logout
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* Scroll to bottom button */}
+            <button
+              onClick={() => {
+                const subtitleContainer = document.getElementById('subtitle-container');
+                if (subtitleContainer) {
+                  subtitleContainer.scrollTo({ 
+                    top: subtitleContainer.scrollHeight, 
+                    behavior: 'smooth' 
+                  });
+                }
+              }}
+              className="flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+              title="Scroll to end of subtitle list"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+            </button>
             {canUndo && (
               <button
                 onClick={onUndo}

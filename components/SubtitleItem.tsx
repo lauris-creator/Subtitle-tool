@@ -15,6 +15,7 @@ interface SubtitleItemProps {
   onUndoSubtitle: (id: number) => void;
   onSplitSubtitle: (id: number) => void;
   onMergeNext: (id: number) => void;
+  onDeleteSegment: (id: number) => void;
   maxTotalChars: number;
   maxLineChars: number;
   minDurationSeconds: number;
@@ -31,6 +32,7 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
   onUndoSubtitle,
   onSplitSubtitle,
   onMergeNext,
+  onDeleteSegment,
   maxTotalChars,
   maxLineChars,
   minDurationSeconds,
@@ -73,6 +75,7 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
   const canSplit = validateSplit(subtitle.text);
   const translatedLines = subtitle.text.split('\n');
   const lineCounts = translatedLines.map(line => line.length);
+  const isEmpty = subtitle.text.trim().length === 0 || subtitle.charCount === 0;
 
   return (
     <div className={`p-4 transition-colors ${
@@ -169,6 +172,16 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
                 <span className="h-3 w-3">➕</span>
                 Merge Next
               </button>
+              {isEmpty && (
+                <button
+                  onClick={() => onDeleteSegment(subtitle.id)}
+                  className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors"
+                  title="Delete this empty segment"
+                >
+                  <span className="h-3 w-3">🗑️</span>
+                  Delete
+                </button>
+              )}
             </div>
           </div>
         )}
