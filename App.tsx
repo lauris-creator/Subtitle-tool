@@ -30,6 +30,10 @@ const App: React.FC = () => {
   const [minDurationSeconds, setMinDurationSeconds] = useState<number>(1);
   const [maxDurationSeconds, setMaxDurationSeconds] = useState<number>(7);
   
+  // Early subtitle warning settings
+  const [warnEarlySubtitlesEnabled, setWarnEarlySubtitlesEnabled] = useState<boolean>(true);
+  const [earlySubtitleThresholdSeconds, setEarlySubtitleThresholdSeconds] = useState<number>(10);
+  
   // Multi-file support
   const [availableFiles, setAvailableFiles] = useState<string[]>([]);
   const [currentFileFilter, setCurrentFileFilter] = useState<string | null>(null);
@@ -1264,6 +1268,14 @@ const App: React.FC = () => {
   const hasFormatErrorsInSubtitles = useMemo(() => 
     translatedSubtitles.some(sub => hasFormatErrors(sub.text)), [translatedSubtitles]);
 
+  const hasEarlySubtitles = useMemo(() => {
+    if (!warnEarlySubtitlesEnabled || translatedSubtitles.length === 0) return false;
+    return translatedSubtitles.some(sub => {
+      const startSeconds = timecodeToSeconds(sub.startTime);
+      return startSeconds < earlySubtitleThresholdSeconds;
+    });
+  }, [translatedSubtitles, warnEarlySubtitlesEnabled, earlySubtitleThresholdSeconds]);
+
   const filteredSubtitles = useMemo(() => {
     const hasActiveFilter = showErrorsOnly || showLongLinesOnly || showTooShortOnly || showTooLongOnly || showTimecodeConflictsOnly || showFormatErrorsOnly;
     const hasFileFilter = currentFileFilter !== null;
@@ -1681,6 +1693,45 @@ const App: React.FC = () => {
               </div>
             </div>
             
+            {/* Early Subtitle Warning Settings */}
+            <div className="bg-gray-800 rounded-lg p-6 mb-8 max-w-md mx-auto">
+              <h3 className="text-lg font-semibold text-white mb-4">Early Subtitle Warning</h3>
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="warnEarlySubtitlesEnabled"
+                    checked={warnEarlySubtitlesEnabled}
+                    onChange={(e) => setWarnEarlySubtitlesEnabled(e.target.checked)}
+                    className="w-4 h-4 text-sky-600 bg-gray-700 border-gray-600 rounded focus:ring-sky-500 focus:ring-2"
+                  />
+                  <label htmlFor="warnEarlySubtitlesEnabled" className="ml-2 text-sm font-medium text-gray-300">
+                    Warn if subtitle before threshold
+                  </label>
+                </div>
+                {warnEarlySubtitlesEnabled && (
+                  <div>
+                    <label htmlFor="earlySubtitleThresholdSeconds" className="block text-sm font-medium text-gray-300 mb-2">
+                      Threshold Time (seconds)
+                    </label>
+                    <input
+                      type="number"
+                      id="earlySubtitleThresholdSeconds"
+                      value={earlySubtitleThresholdSeconds}
+                      onChange={(e) => setEarlySubtitleThresholdSeconds(Number(e.target.value))}
+                      min="0"
+                      max="3600"
+                      step="0.1"
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                    />
+                    <p className="mt-1 text-xs text-gray-400">
+                      Default: 10 seconds (00:00:10,000)
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
             <div className="flex flex-col md:flex-row gap-8 justify-center">
               <FileUpload 
                 label="Upload Translated SRT" 
@@ -1697,7 +1748,26 @@ const App: React.FC = () => {
             </div>
           </div>
         ) : (
-          <SubtitleEditor 
+          <>
+            {hasEarlySubtitles && (
+              <div className="mb-4 mx-auto max-w-7xl">
+                <div className="bg-yellow-900/50 border-l-4 border-yellow-500 p-4 rounded-md">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-yellow-200">
+                        <span className="font-semibold">Warning:</span> Some subtitles start before {secondsToTimecode(earlySubtitleThresholdSeconds)}. Please review and adjust if needed.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <SubtitleEditor 
             subtitles={filteredSubtitles}
             allSubtitles={translatedSubtitles}
             showOriginal={showOriginal && originalSubtitles.length > 0}
@@ -1743,6 +1813,7 @@ const App: React.FC = () => {
             minDurationSeconds={minDurationSeconds}
             maxDurationSeconds={maxDurationSeconds}
           />
+          </>
         )}
       </main>
     </div>
