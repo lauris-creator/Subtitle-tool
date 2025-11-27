@@ -14,11 +14,12 @@ export function timecodeToSeconds(timecode: string): number {
  * Convert seconds back to SRT timecode format
  */
 export function secondsToTimecode(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  // Use Math.round instead of Math.floor to handle precision issues
-  const ms = Math.round((seconds % 1) * 1000);
+  // Convert to integer milliseconds to avoid rounding past 999
+  const totalMs = Math.round(seconds * 1000);
+  const hours = Math.floor(totalMs / 3600000);
+  const minutes = Math.floor((totalMs % 3600000) / 60000);
+  const secs = Math.floor((totalMs % 60000) / 1000);
+  const ms = totalMs % 1000;
   
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
 }

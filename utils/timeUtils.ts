@@ -10,10 +10,11 @@ export function parseTimeToSeconds(timeString: string): number {
 
 export function formatSecondsToTime(totalSeconds: number): string {
   // Convert seconds back to SRT time format: "00:01:23,456"
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = Math.floor(totalSeconds % 60);
-  const milliseconds = Math.round((totalSeconds % 1) * 1000);
+  const totalMs = Math.round(totalSeconds * 1000);
+  const hours = Math.floor(totalMs / 3600000);
+  const minutes = Math.floor((totalMs % 3600000) / 60000);
+  const seconds = Math.floor((totalMs % 60000) / 1000);
+  const milliseconds = totalMs % 1000;
   
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
 }
