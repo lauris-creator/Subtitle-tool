@@ -1067,14 +1067,14 @@ const App: React.FC = () => {
       // If no subtitles exist, start from 00:00:00,000
       let newStartTime: string;
       if (lastSubtitle) {
-        // Calculate new start time: last subtitle's endTime + gap
-        newStartTime = addSecondsToTimecode(lastSubtitle.endTime, newSegmentGapSeconds);
+        // Start right after the previous segment ends (no gap)
+        newStartTime = lastSubtitle.endTime;
       } else {
         newStartTime = '00:00:00,000';
       }
       
-      // Calculate new end time: startTime + duration
-      const newEndTime = addSecondsToTimecode(newStartTime, newSegmentDurationSeconds);
+      // Calculate new end time: startTime + 1.5 seconds duration
+      const newEndTime = addSecondsToTimecode(newStartTime, 1.5);
       
       // Find the next available ID (global, as IDs are sequential across all files)
       const nextId = prev.length > 0 ? Math.max(...prev.map(sub => sub.id)) + 1 : 1;
@@ -1087,9 +1087,9 @@ const App: React.FC = () => {
         text: '',
         charCount: 0,
         isLong: false,
-        duration: newSegmentDurationSeconds,
-        isTooShort: newSegmentDurationSeconds < minDurationSeconds,
-        isTooLong: newSegmentDurationSeconds > maxDurationSeconds,
+        duration: 1.5,
+        isTooShort: 1.5 < minDurationSeconds,
+        isTooLong: 1.5 > maxDurationSeconds,
         hasTimecodeConflict: false,
         recentlyEdited: true, // Mark as recently edited so it stays visible
         editedAt: Date.now(),
@@ -1124,7 +1124,7 @@ const App: React.FC = () => {
     
     // Clear global undo since structure changed
     setPreviousSubtitles(null);
-  }, [translatedSubtitles, newSegmentGapSeconds, newSegmentDurationSeconds, minDurationSeconds, maxDurationSeconds]);
+  }, [translatedSubtitles, minDurationSeconds, maxDurationSeconds]);
 
   const handleDeleteSegment = useCallback((id: number) => {
     setPreviousSubtitles(translatedSubtitles); // Save state for undo
