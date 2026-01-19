@@ -20,7 +20,7 @@ export function secondsToTimecode(seconds: number): string {
   const minutes = Math.floor((totalMs % 3600000) / 60000);
   const secs = Math.floor((totalMs % 60000) / 1000);
   const ms = totalMs % 1000;
-  
+
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
 }
 
@@ -31,17 +31,17 @@ export function addSecondsToTimecode(timecode: string, secondsToAdd: number): st
   const [time, ms] = timecode.split(',');
   const [hours, minutes, seconds] = time.split(':').map(Number);
   const milliseconds = Number(ms);
-  
+
   // Convert to total milliseconds for precise arithmetic
   const totalMs = hours * 3600000 + minutes * 60000 + seconds * 1000 + milliseconds;
   const newTotalMs = totalMs + (secondsToAdd * 1000);
-  
+
   // Convert back to timecode format
   const newHours = Math.floor(newTotalMs / 3600000);
   const newMinutes = Math.floor((newTotalMs % 3600000) / 60000);
   const newSeconds = Math.floor((newTotalMs % 60000) / 1000);
   const newMs = newTotalMs % 1000;
-  
+
   return `${newHours.toString().padStart(2, '0')}:${newMinutes.toString().padStart(2, '0')}:${newSeconds.toString().padStart(2, '0')},${newMs.toString().padStart(3, '0')}`;
 }
 
@@ -49,36 +49,55 @@ export function addSecondsToTimecode(timecode: string, secondsToAdd: number): st
  * Check if two timecode ranges overlap (but not consecutive)
  */
 export function timecodesOverlap(
-  start1: string, 
-  end1: string, 
-  start2: string, 
+  start1: string,
+  end1: string,
+  start2: string,
   end2: string
 ): boolean {
   const start1Sec = timecodeToSeconds(start1);
   const end1Sec = timecodeToSeconds(end1);
   const start2Sec = timecodeToSeconds(start2);
   const end2Sec = timecodeToSeconds(end2);
-  
+
   // Two ranges overlap if one starts before the other ends
   const hasOverlap = start1Sec < end2Sec && start2Sec < end1Sec;
-  
+
   // Check if they are consecutive (one ends exactly when the other starts)
   const isConsecutive = (end1Sec === start2Sec) || (end2Sec === start1Sec);
-  
+
   // Only return true for actual overlaps, not consecutive connections
   return hasOverlap && !isConsecutive;
 }
 
 /**
- * Check if a subtitle has timecode conflicts with other subtitles from the same file
+ * Optimized conflict detection - only checks adjacent subtitles for better performance
+ * Subtitles are assumed to be in chronological order by ID
  */
 export function hasTimecodeConflict(subtitle: Subtitle, allSubtitles: Subtitle[]): boolean {
-  return allSubtitles.some(other => 
-    other.id !== subtitle.id && 
+  const index = allSubtitles.findIndex(s => s.id === subtitle.id);
+  if (index === -1) return false;
+
+  // Check nearby subtitles (3 before, 3 after) for potential conflicts
+  // This works because subtitles are generally in chronological order
+  const checkRange = 3;
+  const startIndex = Math.max(0, index - checkRange);
+  const endIndex = Math.min(allSubtitles.length - 1, index + checkRange);
+
+  for (let i = startIndex; i <= endIndex; i++) {
+    const other = allSubtitles[i];
+
+    if (other.id === subtitle.id) continue;
+
     // Only check within the same file (if sourceFile exists) or all subtitles (single file)
-    (subtitle.sourceFile ? other.sourceFile === subtitle.sourceFile : true) &&
-    timecodesOverlap(subtitle.startTime, subtitle.endTime, other.startTime, other.endTime)
-  );
+    const sameFile = subtitle.sourceFile ? other.sourceFile === subtitle.sourceFile : true;
+    if (!sameFile) continue;
+
+    if (timecodesOverlap(subtitle.startTime, subtitle.endTime, other.startTime, other.endTime)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -106,10 +125,10 @@ export function parseTimecodeInput(input: string): string {
   if (isValidTimecode(input)) {
     return input;
   }
-  
+
   // Remove any non-digit characters except colons and commas
   const cleaned = input.replace(/[^\d:,]/g, '');
-  
+
   // If it's just numbers, try to format it
   if (/^\d+$/.test(cleaned)) {
     const num = parseInt(cleaned);
@@ -129,7 +148,7 @@ export function parseTimecodeInput(input: string): string {
       return secondsToTimecode(hours * 3600 + minutes * 60 + seconds);
     }
   }
-  
+
   // Try to parse as HH:MM:SS or MM:SS
   const parts = cleaned.split(':');
   if (parts.length === 2) {
@@ -144,7 +163,7 @@ export function parseTimecodeInput(input: string): string {
     const seconds = parseInt(parts[2]) || 0;
     return secondsToTimecode(hours * 3600 + minutes * 60 + seconds);
   }
-  
+
   // If we can't parse it, return the original input
   return input;
 }

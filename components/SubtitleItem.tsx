@@ -22,7 +22,7 @@ interface SubtitleItemProps {
   maxDurationSeconds: number;
 }
 
-const SubtitleItem: React.FC<SubtitleItemProps> = ({
+const SubtitleItem: React.FC<SubtitleItemProps> = React.memo(({
   subtitle,
   fileSpecificId,
   showOriginal,
@@ -43,10 +43,10 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
   const [editStartTime, setEditStartTime] = useState(subtitle.startTime);
   const [editEndTime, setEditEndTime] = useState(subtitle.endTime);
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
-  
+
   // Calculate duration for this subtitle
   const duration = calculateDuration(subtitle.startTime, subtitle.endTime);
-  
+
   // Update edit state when subtitle changes (e.g., after save)
   useEffect(() => {
     if (!isEditingTimecode) {
@@ -58,10 +58,10 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
   const handleTimecodeSave = () => {
     const formattedStartTime = parseTimecodeInput(editStartTime);
     const formattedEndTime = parseTimecodeInput(editEndTime);
-    
+
     onUpdateTimecode(subtitle.id, formattedStartTime, formattedEndTime);
     setIsEditingTimecode(false);
-    
+
     // Show brief confirmation
     setShowSaveConfirmation(true);
     setTimeout(() => setShowSaveConfirmation(false), 2000);
@@ -78,10 +78,11 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
   const isEmpty = subtitle.text.trim().length === 0 || subtitle.charCount === 0;
 
   return (
-    <div className={`p-4 transition-colors ${
-      subtitle.recentlyEdited ? 'bg-green-900/20 border-l-4 border-green-500' : 
+    <div className={`p-4 transition-colors ${subtitle.recentlyEdited ? 'bg-green-900/20 border-l-4 border-green-500' :
       subtitle.isLong ? 'bg-red-900/20' : 'hover:bg-gray-700/50'
-    }`}>
+      }`}
+      style={{ contentVisibility: 'auto' }}
+    >
       <div className="flex flex-col md:flex-row gap-4">
         {showTimecodes && (
           <div className="md:w-1/6 text-sm text-gray-400 font-mono flex-shrink-0">
@@ -122,14 +123,14 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
               </div>
             ) : (
               <div>
-                <p 
+                <p
                   className="cursor-pointer hover:text-white transition-colors"
                   onClick={() => setIsEditingTimecode(true)}
                   title="Click to edit timecode"
                 >
                   {subtitle.startTime}
                 </p>
-                <p 
+                <p
                   className="cursor-pointer hover:text-white transition-colors"
                   onClick={() => setIsEditingTimecode(true)}
                   title="Click to edit timecode"
@@ -193,10 +194,10 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
               <p className="text-gray-300 whitespace-pre-wrap">{subtitle.originalText}</p>
             </div>
           )}
-          
+
           <div className={!showOriginal || !subtitle.originalText ? 'md:col-span-2' : ''}>
             <div className="flex justify-between items-start">
-               <div className="flex items-center">
+              <div className="flex items-center">
                 <label className="text-xs font-bold text-gray-500 uppercase">Translated</label>
                 {subtitle.recentlyEdited && (
                   <span className="text-green-400 text-xs bg-green-900/50 px-2 py-1 rounded ml-2">
@@ -230,31 +231,52 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({
               </span>
             </div>
             <div className="relative w-full mt-1">
-                <div 
-                    aria-hidden="true" 
-                    className="absolute left-2 top-2 h-full flex flex-col font-mono text-sm text-gray-500 select-none pointer-events-none"
-                >
-                    {lineCounts.map((count, index) => (
-                        <span 
-                            key={index} 
-                            className={`leading-6 ${count > maxLineChars ? 'text-red-400 font-bold' : ''}`}
-                        >
-                            {count}
-                        </span>
-                    ))}
-                </div>
-                <textarea
-                    value={subtitle.text}
-                    onChange={(e) => onUpdateSubtitle(subtitle.id, e.target.value)}
-                    className={`w-full bg-gray-900/50 text-white p-2 rounded-md border resize-none whitespace-pre-wrap pl-10 text-sm leading-6 ${subtitle.isLong || hasLongLine ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-600 focus:ring-sky-500 focus:border-sky-500'}`}
-                    rows={translatedLines.length || 1}
-                />
+              <div
+                aria-hidden="true"
+                className="absolute left-2 top-2 h-full flex flex-col font-mono text-sm text-gray-500 select-none pointer-events-none"
+              >
+                {lineCounts.map((count, index) => (
+                  <span
+                    key={index}
+                    className={`leading-6 ${count > maxLineChars ? 'text-red-400 font-bold' : ''}`}
+                  >
+                    {count}
+                  </span>
+                ))}
+              </div>
+              <textarea
+                value={subtitle.text}
+                onChange={(e) => onUpdateSubtitle(subtitle.id, e.target.value)}
+                className={`w-full bg-gray-900/50 text-white p-2 rounded-md border resize-none whitespace-pre-wrap pl-10 text-sm leading-6 ${subtitle.isLong || hasLongLine ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-600 focus:ring-sky-500 focus:border-sky-500'}`}
+                rows={translatedLines.length || 1}
+              />
             </div>
           </div>
         </div>
       </div>
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison function - only re-render if these properties change
+  return (
+    prevProps.subtitle.id === nextProps.subtitle.id &&
+    prevProps.subtitle.text === nextProps.subtitle.text &&
+    prevProps.subtitle.startTime === nextProps.subtitle.startTime &&
+    prevProps.subtitle.endTime === nextProps.subtitle.endTime &&
+    prevProps.subtitle.charCount === nextProps.subtitle.charCount &&
+    prevProps.subtitle.isLong === nextProps.subtitle.isLong &&
+    prevProps.subtitle.isTooShort === nextProps.subtitle.isTooShort &&
+    prevProps.subtitle.isTooLong === nextProps.subtitle.isTooLong &&
+    prevProps.subtitle.hasTimecodeConflict === nextProps.subtitle.hasTimecodeConflict &&
+    prevProps.subtitle.recentlyEdited === nextProps.subtitle.recentlyEdited &&
+    prevProps.subtitle.canUndo === nextProps.subtitle.canUndo &&
+    prevProps.showOriginal === nextProps.showOriginal &&
+    prevProps.showTimecodes === nextProps.showTimecodes &&
+    prevProps.maxTotalChars === nextProps.maxTotalChars &&
+    prevProps.maxLineChars === nextProps.maxLineChars &&
+    prevProps.minDurationSeconds === nextProps.minDurationSeconds &&
+    prevProps.maxDurationSeconds === nextProps.maxDurationSeconds
+  );
+});
 
 export default SubtitleItem;
