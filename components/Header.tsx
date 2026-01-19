@@ -17,15 +17,19 @@ interface HeaderProps {
   availableFiles: string[];
   currentFileFilter: string | null;
   onFileFilterChange: (fileName: string | null) => void;
+  displayedSubtitleCount: number;
+  totalSubtitleCount: number;
+  onShowAll: () => void;
+  onScrollToBottom?: () => void;
   user?: User | null;
   onLogout?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ 
-  onDownload, 
-  hasTranslatedSubs, 
-  onUndo, 
-  canUndo, 
+const Header: React.FC<HeaderProps> = ({
+  onDownload,
+  hasTranslatedSubs,
+  onUndo,
+  canUndo,
   onClearSession,
   maxTotalChars,
   maxLineChars,
@@ -35,7 +39,11 @@ const Header: React.FC<HeaderProps> = ({
   currentFileFilter,
   onFileFilterChange,
   user,
-  onLogout
+  onLogout,
+  totalSubtitleCount,
+  displayedSubtitleCount,
+  onShowAll,
+  onScrollToBottom
 }) => {
   return (
     <header className="bg-gray-800 shadow-md sticky top-0 z-10">
@@ -63,7 +71,7 @@ const Header: React.FC<HeaderProps> = ({
                 >
                   <span className="text-xs">⚙️</span>
                 </button>
-                
+
                 {/* Hover Tooltip */}
                 <div className="absolute right-0 top-full mt-2 w-64 bg-gray-800 rounded-lg shadow-lg border border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="p-4">
@@ -111,19 +119,23 @@ const Header: React.FC<HeaderProps> = ({
                 </div>
               </div>
             )}
-            {/* Scroll to bottom button */}
+            {/* Scroll to end button */}
             <button
               onClick={() => {
-                const subtitleContainer = document.getElementById('subtitle-container');
-                if (subtitleContainer) {
-                  subtitleContainer.scrollTo({ 
-                    top: subtitleContainer.scrollHeight, 
-                    behavior: 'smooth' 
-                  });
+                // If filters are active, clear them first then scroll
+                if (displayedSubtitleCount < totalSubtitleCount) {
+                  onShowAll();
+                  // Wait for filters to clear and list to update
+                  setTimeout(() => {
+                    onScrollToBottom?.();
+                  }, 500); // 500ms allows time for filter clear + render
+                } else {
+                  // Already showing all, just scroll
+                  onScrollToBottom?.();
                 }
               }}
               className="flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
-              title="Scroll to end of subtitle list"
+              title={displayedSubtitleCount < totalSubtitleCount ? "Clear filters and scroll to end" : "Scroll to end of subtitle list"}
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Subtitle } from '../types';
 import SubtitleItem from './SubtitleItem';
 import { EyeIcon, EyeOffIcon, ClockIcon, FilterIcon, LineLengthIcon } from './icons/Icons';
@@ -54,11 +55,11 @@ interface SubtitleEditorProps {
   maxDurationSeconds: number;
 }
 
-const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
-  const { 
-    subtitles, 
+const SubtitleEditor = forwardRef<VirtuosoHandle, SubtitleEditorProps>((props, ref) => {
+  const {
+    subtitles,
     allSubtitles,
-    showOriginal, 
+    showOriginal,
     setShowOriginal,
     hasTotalLengthErrors,
     showErrorsOnly,
@@ -100,9 +101,22 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
     maxLineChars,
     minDurationSeconds,
     maxDurationSeconds,
-    ...itemProps 
+    onUpdateSubtitle,
+    onUpdateTimecode,
+    onUndoSubtitle,
+    onSplitSubtitle,
   } = props;
-  
+
+  const itemProps = {
+    onUpdateSubtitle,
+    onUpdateTimecode,
+    onUndoSubtitle,
+    onSplitSubtitle,
+    onAddSegment,
+    availableFiles,
+    currentFileFilter,
+  };
+
   const hasOriginalText = subtitles.some(sub => sub.originalText);
 
   return (
@@ -119,7 +133,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             <span>Show All</span>
           </button>
           {hasTotalLengthErrors && (
-             <button
+            <button
               onClick={() => setShowErrorsOnly(!showErrorsOnly)}
               className={`flex items-center text-sm transition-colors ${showErrorsOnly ? 'text-sky-400' : 'text-gray-300 hover:text-white'}`}
               title={showErrorsOnly ? 'Show All' : `Show entries with total length > ${maxTotalChars} chars`}
@@ -129,7 +143,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             </button>
           )}
           {hasLongLines && (
-             <button
+            <button
               onClick={() => setShowLongLinesOnly(!showLongLinesOnly)}
               className={`flex items-center text-sm transition-colors ${showLongLinesOnly ? 'text-sky-400' : 'text-gray-300 hover:text-white'}`}
               title={showLongLinesOnly ? 'Show All' : `Show entries with a line > ${maxLineChars} chars`}
@@ -139,7 +153,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             </button>
           )}
           {hasTooShortSegments && (
-             <button
+            <button
               onClick={() => setShowTooShortOnly(!showTooShortOnly)}
               className={`flex items-center text-sm transition-colors ${showTooShortOnly ? 'text-sky-400' : 'text-gray-300 hover:text-white'}`}
               title={showTooShortOnly ? 'Show All' : `Show entries under ${minDurationSeconds} second${minDurationSeconds !== 1 ? 's' : ''}`}
@@ -149,7 +163,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             </button>
           )}
           {hasTooLongSegments && (
-             <button
+            <button
               onClick={() => setShowTooLongOnly(!showTooLongOnly)}
               className={`flex items-center text-sm transition-colors ${showTooLongOnly ? 'text-sky-400' : 'text-gray-300 hover:text-white'}`}
               title={showTooLongOnly ? 'Show All' : `Show entries over ${maxDurationSeconds} second${maxDurationSeconds !== 1 ? 's' : ''}`}
@@ -159,7 +173,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             </button>
           )}
           {hasTimecodeConflicts && (
-             <button
+            <button
               onClick={() => setShowTimecodeConflictsOnly(!showTimecodeConflictsOnly)}
               className={`flex items-center text-sm transition-colors ${showTimecodeConflictsOnly ? 'text-sky-400' : 'text-gray-300 hover:text-white'}`}
               title={showTimecodeConflictsOnly ? 'Show All' : 'Show entries with overlapping timecodes'}
@@ -169,7 +183,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             </button>
           )}
           {hasFormatErrors && (
-             <button
+            <button
               onClick={() => setShowFormatErrorsOnly(!showFormatErrorsOnly)}
               className={`flex items-center text-sm transition-colors ${showFormatErrorsOnly ? 'text-purple-400' : 'text-gray-300 hover:text-white'}`}
               title={showFormatErrorsOnly ? 'Show All' : 'Show segments with format issues: more than 2 lines, any line starting with punctuation/closing brackets, or any line ending with opening brackets (+ adjacent segments)'}
@@ -179,7 +193,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             </button>
           )}
           {hasMultiLineInFiltered && (
-             <button
+            <button
               onClick={onRemoveBreaksFromFiltered}
               className="flex items-center text-sm transition-colors text-gray-300 hover:text-white"
               title="Remove line breaks from all visible subtitles (convert to single line)"
@@ -189,7 +203,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             </button>
           )}
           {hasLongLinesInFiltered && (
-             <button
+            <button
               onClick={onSplitFilteredLines}
               className="flex items-center text-sm transition-colors text-gray-300 hover:text-white"
               title="Split long lines in all visible subtitles"
@@ -199,7 +213,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             </button>
           )}
           {hasSplittableInFiltered && (
-             <button
+            <button
               onClick={onBulkSplitFiltered}
               className="flex items-center text-sm transition-colors text-orange-400 hover:text-orange-300"
               title="Split all visible subtitles into two parts with proportional timecodes"
@@ -209,7 +223,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             </button>
           )}
           {hasTimecodeConflictsInFiltered && (
-             <button
+            <button
               onClick={onFixTimecodeConflicts}
               className="flex items-center text-sm transition-colors text-red-400 hover:text-red-300"
               title="Fix timecode conflicts by reducing end times by 1ms"
@@ -219,7 +233,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             </button>
           )}
           {hasTooShortSegmentsInFiltered && (
-             <button
+            <button
               onClick={onFixTooShortSegments}
               className="flex items-center text-sm transition-colors text-blue-400 hover:text-blue-300"
               title="Extend too short segments to minimum duration"
@@ -229,7 +243,7 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
             </button>
           )}
           {hasConsecutivePairsInFiltered && (
-             <button
+            <button
               onClick={onBulkMergeFiltered}
               className="flex items-center text-sm transition-colors text-teal-400 hover:text-teal-300"
               title="Merge consecutive pairs of filtered segments"
@@ -250,80 +264,83 @@ const SubtitleEditor: React.FC<SubtitleEditorProps> = (props) => {
           )}
         </div>
       </div>
-      <div id="subtitle-container" className="max-h-[calc(100vh-200px)] overflow-y-auto">
-        <div className="divide-y divide-gray-700">
-          {subtitles.map((subtitle, index) => {
-            const isNewFile = index === 0 || subtitle.sourceFile !== subtitles[index - 1].sourceFile;
-            // Check if this is the last subtitle of this file in the current filtered view
-            // It's the last if: it's the last item in the list, OR the next item belongs to a different file
-            const isLastInFile = index === subtitles.length - 1 || 
-              (subtitle.sourceFile !== subtitles[index + 1].sourceFile) ||
-              (subtitle.sourceFile && !subtitles[index + 1].sourceFile) ||
-              (!subtitle.sourceFile && subtitles[index + 1].sourceFile);
-            
-            // Calculate per-file ID using the complete subtitle list (not filtered)
-            let fileSpecificId = 1;
-            if (subtitle.sourceFile && allSubtitles) {
-              // Find the position of this subtitle in the complete list of all subtitles from the same file
-              const allFromSameFile = allSubtitles.filter(sub => sub.sourceFile === subtitle.sourceFile);
-              const positionInFile = allFromSameFile.findIndex(sub => sub.id === subtitle.id);
-              fileSpecificId = positionInFile + 1; // Convert 0-based index to 1-based ID
-            }
-            
-            return (
-              <React.Fragment key={subtitle.id}>
-                {isNewFile && subtitle.sourceFile && (
-                  <div className="bg-purple-900/30 border-l-4 border-purple-400 px-4 py-3">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-purple-400 font-semibold text-sm">📁</span>
-                      <span className="text-purple-300 font-medium text-sm">{subtitle.sourceFile}</span>
-                      <span className="text-purple-500 text-xs">
-                        ({allSubtitles ? allSubtitles.filter(sub => sub.sourceFile === subtitle.sourceFile).length : subtitles.filter(sub => sub.sourceFile === subtitle.sourceFile).length} subtitles)
-                      </span>
+      <div id="subtitle-container" className="max-h-[calc(100vh-200px)]">
+        {subtitles.length === 0 ? (
+          <div className="px-4 py-8 text-center text-gray-400">
+            <p>No subtitles to display</p>
+          </div>
+        ) : (
+          <Virtuoso
+            ref={ref}
+            style={{ height: 'calc(100vh - 200px)' }}
+            data={subtitles}
+            overscan={200}
+            itemContent={(index, subtitle) => {
+              const isNewFile = index === 0 || subtitle.sourceFile !== subtitles[index - 1].sourceFile;
+              const isLastInFile = index === subtitles.length - 1 ||
+                (subtitle.sourceFile !== subtitles[index + 1].sourceFile) ||
+                (subtitle.sourceFile && !subtitles[index + 1].sourceFile) ||
+                (!subtitle.sourceFile && subtitles[index + 1].sourceFile);
+
+              // Calculate per-file ID
+              let fileSpecificId = 1;
+              if (subtitle.sourceFile && allSubtitles) {
+                const allFromSameFile = allSubtitles.filter(sub => sub.sourceFile === subtitle.sourceFile);
+                const positionInFile = allFromSameFile.findIndex(sub => sub.id === subtitle.id);
+                fileSpecificId = positionInFile + 1;
+              }
+
+              return (
+                <div className="divide-y divide-gray-700">
+                  {isNewFile && subtitle.sourceFile && (
+                    <div className="bg-purple-900/30 border-l-4 border-purple-400 px-4 py-3">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-purple-400 font-semibold text-sm">📁</span>
+                        <span className="text-purple-300 font-medium text-sm">{subtitle.sourceFile}</span>
+                        <span className="text-purple-500 text-xs">
+                          ({allSubtitles ? allSubtitles.filter(sub => sub.sourceFile === subtitle.sourceFile).length : subtitles.filter(sub => sub.sourceFile === subtitle.sourceFile).length} subtitles)
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )}
-                <SubtitleItem
-                  subtitle={subtitle}
-                  fileSpecificId={fileSpecificId}
-                  showOriginal={showOriginal}
-                  showTimecodes={true}
-                  maxTotalChars={maxTotalChars}
-                  maxLineChars={maxLineChars}
-                  minDurationSeconds={minDurationSeconds}
-                  maxDurationSeconds={maxDurationSeconds}
-                  onMergeNext={onMergeNext}
-                  onDeleteSegment={onDeleteSegment}
-                  {...itemProps}
-                />
-                {isLastInFile && (
-                  <div className="px-4 py-3 bg-gray-750 border-t border-gray-700">
-                    <button
-                      onClick={() => {
-                        // Use currentFileFilter if active, otherwise use the subtitle's sourceFile
-                        const targetFile = currentFileFilter || subtitle.sourceFile || null;
-                        onAddSegment(targetFile);
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-md transition-colors text-sm font-medium"
-                      title={`Add new empty segment to ${currentFileFilter || subtitle.sourceFile || 'this file'}`}
-                    >
-                      <span className="text-lg">+</span>
-                      <span>Add Segment</span>
-                    </button>
-                  </div>
-                )}
-              </React.Fragment>
-            );
-          })}
-          {subtitles.length === 0 && (
-            <div className="px-4 py-8 text-center text-gray-400">
-              <p>No subtitles to display</p>
-            </div>
-          )}
-        </div>
+                  )}
+                  <SubtitleItem
+                    subtitle={subtitle}
+                    fileSpecificId={fileSpecificId}
+                    showOriginal={showOriginal}
+                    showTimecodes={true}
+                    maxTotalChars={maxTotalChars}
+                    maxLineChars={maxLineChars}
+                    minDurationSeconds={minDurationSeconds}
+                    maxDurationSeconds={maxDurationSeconds}
+                    onMergeNext={onMergeNext}
+                    onDeleteSegment={onDeleteSegment}
+                    {...itemProps}
+                  />
+                  {isLastInFile && (
+                    <div className="px-4 py-3 bg-gray-750 border-t border-gray-700">
+                      <button
+                        onClick={() => {
+                          const targetFile = currentFileFilter || subtitle.sourceFile || null;
+                          onAddSegment(targetFile);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-md transition-colors text-sm font-medium"
+                        title={`Add new empty segment to ${currentFileFilter || subtitle.sourceFile || 'this file'}`}
+                      >
+                        <span className="text-lg">+</span>
+                        <span>Add Segment</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            }}
+          />
+        )}
       </div>
     </div>
   );
-};
+});
+
+SubtitleEditor.displayName = 'SubtitleEditor';
 
 export default SubtitleEditor;
