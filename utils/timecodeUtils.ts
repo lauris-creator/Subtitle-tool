@@ -92,7 +92,20 @@ export function hasTimecodeConflict(subtitle: Subtitle, allSubtitles: Subtitle[]
     const sameFile = subtitle.sourceFile ? other.sourceFile === subtitle.sourceFile : true;
     if (!sameFile) continue;
 
+    // Check for overlap
     if (timecodesOverlap(subtitle.startTime, subtitle.endTime, other.startTime, other.endTime)) {
+      return true;
+    }
+
+    // Check for chronological order violations
+    // If we are checking a subtitle with a higher ID, it should start AFTER the current subtitle starts
+    // (We allow them to start at the same time, but not before)
+    if (other.id > subtitle.id && timecodeToSeconds(other.startTime) < timecodeToSeconds(subtitle.startTime)) {
+      return true;
+    }
+
+    // If we are checking a subtitle with a lower ID, it should start BEFORE the current subtitle starts
+    if (other.id < subtitle.id && timecodeToSeconds(other.startTime) > timecodeToSeconds(subtitle.startTime)) {
       return true;
     }
   }
